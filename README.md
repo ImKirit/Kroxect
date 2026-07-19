@@ -8,7 +8,8 @@
 
 A local-first project organizer for Windows — tag your projects, template their
 folder structure, nickname the files that matter, and pull any of them up
-from anywhere with one hotkey.
+from anywhere with one hotkey. View your library as a graph, link your cloud
+drives, and hand a project's full context to your AI of choice.
 
 [![Release](https://img.shields.io/github/v/release/ImKirit/Krate?color=a855f7&label=download)](https://github.com/ImKirit/Krate/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-7c3aed)](LICENSE)
@@ -39,9 +40,26 @@ on disk are picked up automatically.
 custom tags with custom colors. Filter your library by tag or by status
 (Idea / Active / Paused / Done / Archived).
 
-🗂 **Folder templates** — define a folder structure once ("Video Edit" ships
-with `Footage/Raw`, `Audio/SFX`, `Exports`, …), apply it when creating a
-project. You can also save any existing project's structure as a new template.
+🗂 **Folder templates** — build folder structures in a **visual tree editor**
+("Video Edit" ships with `Footage/Raw`, `Audio/SFX`, `Exports`, …) and
+**attach starter files** that are copied into every new project created from
+the template. You can also save any existing project's structure as a template.
+
+⭐ **Favorites** — pin the projects you're working on; they float to the top
+of the grid and get their own sidebar filter.
+
+🔗 **Cloud links** — attach Google Drive folders, Dropbox shares, OneDrive
+files or repos to a project. Links are searchable in the overlay and open in
+your browser.
+
+🕸 **Graph view** — see one project (or your whole library) as an interactive
+Obsidian-style force graph: projects cluster around shared tags, folders and
+files fan out, nicknamed files glow. Drag nodes, zoom, click to open.
+
+🤖 **AI assistant** — sign in to Claude, ChatGPT, Gemini or Copilot **with
+your own account** (no API keys) in a built-in window. "Ask AI" on a project
+copies its full context — file tree, nicknames, notes, links — ready to paste
+into the chat.
 
 📝 **Descriptions & notes** — a description plus timestamped notes/comments
 per project, stored right in the project folder.
@@ -65,9 +83,11 @@ project; drag results out of the overlay straight into Premiere, Discord,
 your browser, anywhere.
 
 🔎 More: fuzzy search, open/reveal in Explorer, tray icon, single-instance,
-projects are portable between machines.
+projects portable between machines, hand-drawn SVG icon set, and a switchable
+animation system (Settings → *Smooth animations*, or classic v1.0 feel).
 
 <div align="center">
+<img src="docs/main-graph.png" width="800" alt="Graph view">
 <img src="docs/main-files.png" width="800" alt="Files view with nicknames">
 </div>
 
@@ -102,13 +122,15 @@ npm start
 
 ```
 MyProject/
-├─ krate.json        ← title, tags, notes, nicknames, status …
+├─ krate.json        ← title, tags, notes, links, nicknames, status …
 ├─ .krate/           ← cover image
 └─ …your files, exactly as you put them
 ```
 
-Global settings (default projects folder, tags, templates, hotkey) live in
-`%APPDATA%/krate/config.json`.
+Global settings (default projects folder, tags, templates, hotkey, AI
+provider) live in `%APPDATA%/krate/config.json`; files attached to templates
+are stored in `%APPDATA%/krate/template-files/`. The AI window uses its own
+persistent browser session — your login stays on your machine.
 
 ## Development
 

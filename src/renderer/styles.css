@@ -111,12 +111,16 @@ input, textarea, select, button { font: inherit; color: inherit; }
   padding: 14px 18px; border-bottom: 1px solid var(--border);
 }
 
-#searchInput {
+.search-wrap {
   flex: 1; max-width: 460px;
+  display: flex; align-items: center; gap: 9px;
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: 10px; padding: 9px 14px; outline: none;
+  border-radius: 10px; padding: 0 14px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-#searchInput:focus { border-color: rgba(168, 85, 247, 0.5); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12); }
+.search-wrap .ico { color: var(--muted); }
+.search-wrap:focus-within { border-color: rgba(168, 85, 247, 0.5); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12); }
+#searchInput { flex: 1; background: none; border: none; outline: none; padding: 9px 0; }
 
 select {
   background: var(--panel); border: 1px solid var(--border);

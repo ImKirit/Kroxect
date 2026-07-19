@@ -92,3 +92,41 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   white-space: nowrap; overflow: hidden;
 }
+
+/* ---- icons ---- */
+.ki { display: inline-flex; width: 17px; height: 17px; }
+.ki svg { width: 100%; height: 100%; }
+.q-ico { display: inline-flex; width: 18px; height: 18px; color: var(--muted); }
+.q-ico .ki { width: 100%; height: 100%; }
+#btnMode { display: inline-grid; place-items: center; padding: 5px 8px; }
+#btnMode .ki { width: 16px; height: 16px; }
+.ricon { display: inline-flex; justify-content: center; }
+.ricon .ki { width: 18px; height: 18px; }
+.ri-proj { color: #a855f7; }
+.fold-ico { color: #b18cf0; }
+.ft-image { color: #f472b6; }
+.ft-video { color: #ef4444; }
+.ft-audio { color: #8b5cf6; }
+.ft-proj  { color: #a855f7; }
+.ft-archive { color: #f59e0b; }
+.ft-code  { color: #38bdf8; }
+.ft-doc   { color: #94a3b8; }
+.ft-file  { color: #8d88a3; }
+.lp-drive { color: #fbbf24; }
+.lp-dropbox { color: #38bdf8; }
+.lp-onedrive { color: #60a5fa; }
+.lp-github { color: #e2e0ee; }
+.lp-globe { color: #8d88a3; }
+
+/* ---- entrance animation (body.anim only) ---- */
+@keyframes ovPop {
+  0% { opacity: 0; transform: scale(0.94) translateY(-14px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes ovRow {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+body.anim #panel.pop { animation: ovPop 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.2); }
+body.anim .rrow { animation: ovRow 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) backwards; animation-delay: calc(var(--i, 0) * 14ms); }
+body.anim .rrow { transition: background 0.12s; }

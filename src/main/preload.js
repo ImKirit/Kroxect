@@ -17,9 +17,13 @@ contextBridge.exposeInMainWorld('krate', {
   deleteProject: invoke('project:delete'),
   unregisterProject: invoke('project:unregister'),
   saveTemplateFromProject: invoke('template:saveFromProject'),
+  tplImportFiles: invoke('template:importFiles'),
+  tplDeleteFiles: invoke('template:deleteFiles'),
 
   open: invoke('fs:open'),
   reveal: invoke('fs:reveal'),
+  openExternal: invoke('fs:openExternal'),
+  aiOpen: invoke('ai:open'),
 
   search: invoke('search:query'),
   browse: invoke('overlay:browse'),

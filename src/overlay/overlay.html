@@ -9,8 +9,9 @@
 <body>
   <div id="panel">
     <div id="searchRow">
+      <span class="q-ico" id="qIco"></span>
       <input id="q" type="text" placeholder="Search projects, files, nicknames…" spellcheck="false" autocomplete="off">
-      <button id="btnMode" title="Toggle browse mode (Tab)">🗂</button>
+      <button id="btnMode" title="Toggle browse mode (Tab)"></button>
     </div>
     <div id="crumbs" hidden></div>
     <div id="results"></div>
@@ -18,6 +19,7 @@
       ↑↓ select&nbsp;&nbsp;·&nbsp;&nbsp;⏎ open&nbsp;&nbsp;·&nbsp;&nbsp;Ctrl+⏎ show in Explorer&nbsp;&nbsp;·&nbsp;&nbsp;Shift+⏎ open in Krate&nbsp;&nbsp;·&nbsp;&nbsp;Tab browse&nbsp;&nbsp;·&nbsp;&nbsp;drag rows anywhere&nbsp;&nbsp;·&nbsp;&nbsp;Esc close
     </div>
   </div>
+  <script src="../renderer/icons.js"></script>
   <script src="../renderer/demo.js"></script>
   <script src="overlay.js"></script>
 </body>

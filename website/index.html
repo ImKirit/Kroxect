@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Krate — every project, packed and findable</title>
-  <meta name="description" content="Krate is a local-first project organizer for Windows: tags, folder templates, file nicknames and a global quick-search overlay. Free & open source.">
+  <meta name="description" content="Krate is a local-first project organizer for Windows: tags, folder templates, file nicknames, a graph view, an AI assistant and a global quick-search overlay. Free & open source.">
   <meta property="og:title" content="Krate — every project, packed and findable">
-  <meta property="og:description" content="Local-first project organizer for Windows: tags, folder templates, file nicknames and a global quick-search overlay.">
+  <meta property="og:description" content="Local-first project organizer for Windows: tags, folder templates, file nicknames, graph view and a global quick-search overlay.">
   <meta property="og:image" content="https://imkirit.dev/krate/img/main-home.png">
   <meta property="og:url" content="https://imkirit.dev/krate/">
   <link rel="icon" type="image/png" href="img/icon.png">
@@ -22,6 +22,8 @@
       --accent: #a855f7;
       --accent2: #7c3aed;
       --grad: linear-gradient(135deg, #a855f7, #7c3aed);
+      --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease: cubic-bezier(0.2, 0.9, 0.25, 1);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -45,18 +47,25 @@
     .logo-mark {
       width: 32px; height: 32px; border-radius: 9px; background: var(--grad);
       display: grid; place-items: center; font-weight: 800; font-size: 18px; color: #fff;
-      box-shadow: 0 0 18px rgba(168, 85, 247, 0.45);
+      transition: transform 0.3s var(--spring);
     }
+    .logo-mark:hover { transform: rotate(-10deg) scale(1.12); }
     .logo-text { font-weight: 700; letter-spacing: 3px; font-size: 16px; }
     .nav-links { margin-left: auto; display: flex; gap: 24px; font-size: 14px; }
-    .nav-links a { color: var(--muted); }
+    .nav-links a { color: var(--muted); position: relative; padding: 2px 0; transition: color 0.15s; }
+    .nav-links a::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 2px;
+      background: var(--grad); border-radius: 2px; transform: scaleX(0);
+      transform-origin: left; transition: transform 0.28s var(--spring);
+    }
     .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover::after { transform: scaleX(1); }
 
     /* hero */
     header.hero { text-align: center; padding: 90px 22px 60px; position: relative; }
     .hero::before {
       content: ""; position: absolute; inset: -200px 0 auto 0; height: 500px;
-      background: radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.22), transparent 65%);
+      background: radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.07), transparent 65%);
       pointer-events: none;
     }
     .hero h1 {
@@ -64,29 +73,63 @@
       letter-spacing: -1px;
     }
     .hero h1 span {
-      background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+      background: linear-gradient(110deg, #a855f7 20%, #d8b4fe 42%, #7c3aed 60%);
+      background-size: 220% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: sheen 7s ease-in-out infinite;
     }
-    .hero p.sub { color: var(--muted); max-width: 620px; margin: 22px auto 0; font-size: 18px; }
+    @keyframes sheen {
+      0%, 100% { background-position: 0% 0; }
+      50% { background-position: 90% 0; }
+    }
+    .hero p.sub { color: var(--muted); max-width: 640px; margin: 22px auto 0; font-size: 18px; }
     .cta-row { display: flex; gap: 14px; justify-content: center; margin-top: 36px; flex-wrap: wrap; }
     .btn {
+      position: relative; overflow: hidden;
       display: inline-flex; align-items: center; gap: 9px;
       padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 15px;
       border: 1px solid var(--border); background: var(--panel); color: var(--text);
-      transition: transform 0.12s, border-color 0.12s, filter 0.12s;
+      transition: transform 0.2s var(--spring), border-color 0.15s, filter 0.15s, box-shadow 0.2s;
+      cursor: pointer;
     }
-    .btn:hover { transform: translateY(-2px); border-color: rgba(168, 85, 247, 0.5); }
+    .btn:hover { transform: translateY(-2.5px); border-color: rgba(168, 85, 247, 0.5); }
+    .btn:active { transform: translateY(0) scale(0.95); transition-duration: 0.07s; }
     .btn-primary {
       background: var(--grad); border: none; color: #fff;
-      box-shadow: 0 6px 26px rgba(124, 58, 237, 0.4);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
     }
-    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-primary::after {
+      content: ""; position: absolute; top: 0; bottom: 0; width: 40%;
+      left: -60%; transform: skewX(-20deg);
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      transition: left 0.5s var(--ease);
+    }
+    .btn-primary:hover::after { left: 130%; }
+    .btn .bico { width: 17px; height: 17px; }
     .hero-meta { margin-top: 14px; font-size: 12.5px; color: var(--muted); }
 
     .shot {
-      border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 16px; overflow: hidden;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 60px rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 16px; overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+      transform-style: preserve-3d; will-change: transform;
+      transition: transform 0.35s var(--ease), border-color 0.25s;
     }
+    .shot.tilting { transition: transform 0.06s linear; }
+    .shot:hover { border-color: rgba(168, 85, 247, 0.35); }
     .hero .shot { max-width: 960px; margin: 56px auto 0; }
+
+    /* entrance animation (page load) */
+    .hi { opacity: 0; transform: translateY(26px); animation: rise 0.7s var(--ease) forwards; }
+    .hi-1 { animation-delay: 0.05s; }
+    .hi-2 { animation-delay: 0.16s; }
+    .hi-3 { animation-delay: 0.27s; }
+    .hi-4 { animation-delay: 0.36s; }
+    .hi-5 { animation-delay: 0.45s; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+
+    /* scroll reveal */
+    .rv { opacity: 0; transform: translateY(30px) scale(0.985); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); transition-delay: var(--d, 0s); }
+    .rv.in { opacity: 1; transform: none; }
 
     /* sections */
     section { padding: 80px 0; }
@@ -99,11 +142,17 @@
       gap: 16px; margin-top: 48px;
     }
     .feat {
+      position: relative; overflow: hidden;
       background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
-      padding: 22px; transition: transform 0.12s, border-color 0.12s;
+      padding: 22px; transition: transform 0.22s var(--spring), border-color 0.15s;
     }
-    .feat:hover { transform: translateY(-3px); border-color: rgba(168, 85, 247, 0.45); }
-    .feat .ico { font-size: 26px; }
+    .feat:hover { transform: translateY(-5px) scale(1.015); border-color: rgba(168, 85, 247, 0.45); }
+    .feat:active { transform: translateY(-1px) scale(0.99); }
+    .feat .fico {
+      width: 30px; height: 30px; color: var(--accent);
+      transition: transform 0.3s var(--spring);
+    }
+    .feat:hover .fico { transform: scale(1.18) rotate(-6deg); }
     .feat h3 { font-size: 15.5px; margin: 12px 0 6px; }
     .feat p { font-size: 13.5px; color: var(--muted); }
 
@@ -118,8 +167,10 @@
     kbd {
       background: var(--panel2); border: 1px solid var(--border); border-bottom-width: 2px;
       border-radius: 6px; padding: 1.5px 7px; font-size: 12.5px; font-family: Consolas, monospace;
-      color: var(--text);
+      color: var(--text); display: inline-block;
+      transition: transform 0.2s var(--spring);
     }
+    kbd:hover { transform: translateY(-2px); }
     .keys { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
     .keys div { display: flex; gap: 10px; align-items: baseline; color: var(--muted); }
     .keys .k { min-width: 130px; text-align: right; }
@@ -130,6 +181,17 @@
       color: var(--muted); overflow-x: auto; line-height: 1.7;
     }
     pre.tree b { color: var(--accent); font-weight: 600; }
+
+    /* click ripple */
+    .ink {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      background: rgba(255, 255, 255, 0.35);
+      width: 22px; height: 22px; margin: -11px 0 0 -11px;
+      transform: scale(0); opacity: 0.7;
+      animation: ink 0.55s var(--ease) forwards;
+    }
+    .btn:not(.btn-primary) .ink { background: rgba(168, 85, 247, 0.3); }
+    @keyframes ink { to { transform: scale(4); opacity: 0; } }
 
     /* download */
     #download { text-align: center; }
@@ -147,9 +209,33 @@
       .nav-links { gap: 14px; }
       section { padding: 56px 0; }
     }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .hi, .rv { opacity: 1; transform: none; }
+    }
   </style>
 </head>
 <body>
+
+<!-- Krate icon set (same hand-drawn style as the app) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 8L12 3.5 20.5 8v8L12 20.5 3.5 16z"/><path d="M3.5 8L12 12.5 20.5 8M12 12.5v8"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 11V5c0-.8.7-1.5 1.5-1.5h6l9.5 9.5c.6.6.6 1.5 0 2.1l-5.4 5.4c-.6.6-1.5.6-2.1 0z"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M9.5 9.5V20"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l.9-3.8L16.2 4.9a1.8 1.8 0 0 1 2.6 0l.3.3a1.8 1.8 0 0 1 0 2.6L7.8 19.1z"/><path d="M14.5 6.5l3 3"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4.5h14v12l-3 3H5z"/><path d="M16 19.5v-3h3M8.5 9h7M8.5 12.5h5"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5L4.5 13.5h5L10 21.5l8.5-11h-5z"/></symbol>
+    <symbol id="i-drag" viewBox="0 0 24 24"><path d="M5.5 3.5l13.5 6.5-6 1.7L9.5 18z"/><path d="M13.5 13.5l5 5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.3" r="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8L3.5 9.7l5.9-.9z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4.2 4.2 0 0 0 6 0l3-3a4.24 4.24 0 0 0-6-6l-1.5 1.5"/><path d="M14 10a4.2 4.2 0 0 0-6 0l-3 3a4.24 4.24 0 0 0 6 6l1.5-1.5"/></symbol>
+    <symbol id="i-graph" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="8" r="2.4"/><circle cx="9" cy="18" r="2.4"/><path d="M8.2 7.1l7.4.7M7 8.2l1.4 7.5M16.3 9.8l-5.6 6.6"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5M12 4.5a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6z"/><circle cx="9.5" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="13" r="1.2" fill="currentColor" stroke="none"/><path d="M9.5 16.3c1.6 1 3.4 1 5 0"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M4.5 19.5h15"/></symbol>
+    <symbol id="i-gh" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-2.85 17.55c.45.08.62-.2.62-.44v-1.68c-2.5.55-3.03-1.08-3.03-1.08-.41-1.04-1-1.32-1-1.32-.82-.56.06-.55.06-.55.9.06 1.38.93 1.38.93.8 1.38 2.11.98 2.63.75.08-.58.31-.98.57-1.2-2-.23-4.1-1-4.1-4.45 0-.98.35-1.79.93-2.42-.1-.23-.4-1.15.08-2.4 0 0 .76-.24 2.48.92a8.6 8.6 0 0 1 4.52 0c1.72-1.16 2.47-.92 2.47-.92.49 1.25.19 2.17.1 2.4.58.63.92 1.44.92 2.42 0 3.47-2.1 4.22-4.11 4.44.32.28.61.83.61 1.67v2.48c0 .24.16.53.62.44A9 9 0 0 0 12 3z"/></symbol>
+  </defs>
+</svg>
 
 <nav>
   <div class="nav-inner">
@@ -158,6 +244,7 @@
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#search">Quick Search</a>
+      <a href="#graph">Graph</a>
       <a href="#download">Download</a>
       <a href="https://github.com/ImKirit/Krate" target="_blank" rel="noopener">GitHub</a>
     </div>
@@ -165,42 +252,46 @@
 </nav>
 
 <header class="hero">
-  <h1>Every project,<br><span>packed and findable.</span></h1>
-  <p class="sub">
+  <h1 class="hi hi-1">Every project,<br><span>packed and findable.</span></h1>
+  <p class="sub hi hi-2">
     Krate is a local-first project organizer for Windows. Tag your projects, template
-    their folder structure, nickname the files that matter — and pull any of them up
-    from anywhere with one hotkey.
+    their folder structure, nickname the files that matter — then pull any of them up
+    from anywhere with one hotkey, see them as a graph, or ask your AI about them.
   </p>
-  <div class="cta-row">
-    <a class="btn btn-primary" href="Krate-Setup-1.0.0.exe">⬇ Download for Windows</a>
-    <a class="btn" href="https://github.com/ImKirit/Krate" target="_blank" rel="noopener">★ View on GitHub</a>
+  <div class="cta-row hi hi-3">
+    <a class="btn btn-primary" href="Krate-Setup-1.1.0.exe"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg> Download for Windows</a>
+    <a class="btn" href="https://github.com/ImKirit/Krate" target="_blank" rel="noopener"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-gh"/></svg> View on GitHub</a>
   </div>
-  <div class="hero-meta">Free & open source · MIT · no account, no cloud, no tracking</div>
-  <div class="shot"><img src="img/main-home.png" alt="Krate library — tagged projects in a dark purple grid" loading="eager"></div>
+  <div class="hero-meta hi hi-4">Free & open source · MIT · no account, no cloud, no tracking</div>
+  <div class="shot tilt hi hi-5"><img src="img/main-home.png" alt="Krate library — tagged projects in a dark purple grid" loading="eager"></div>
 </header>
 
 <section id="features">
   <div class="container">
-    <h2 class="sec">Built for people with too many projects</h2>
-    <p class="sec-sub">Edits, apps, designs, beats, school stuff — every project is a normal folder on your disk, organized by Krate.</p>
+    <h2 class="sec rv">Built for people with too many projects</h2>
+    <p class="sec-sub rv" style="--d:.08s">Edits, apps, designs, beats, school stuff — every project is a normal folder on your disk, organized by Krate.</p>
     <div class="feat-grid">
-      <div class="feat"><div class="ico">📦</div><h3>Projects as folders</h3><p>One default projects folder, or any custom location per project. No database — a tiny krate.json rides along in each folder.</p></div>
-      <div class="feat"><div class="ico">🏷</div><h3>Tags & statuses</h3><p>Preset tags like Edit, Video, App and Web plus unlimited custom tags with custom colors. Filter by tag or by Idea → Active → Done.</p></div>
-      <div class="feat"><div class="ico">🗂</div><h3>Folder templates</h3><p>Apply a ready-made structure when creating a project — or save any project's layout as a reusable template.</p></div>
-      <div class="feat"><div class="ico">✎</div><h3>File nicknames</h3><p>Call it “main clip”, not render_v7_FINAL2.mp4. Nicknames are searchable and show up as badges everywhere.</p></div>
-      <div class="feat"><div class="ico">📝</div><h3>Notes & covers</h3><p>Descriptions, timestamped comments and a cover image per project, so your library is scannable at a glance.</p></div>
-      <div class="feat"><div class="ico">⚡</div><h3>Global quick search</h3><p>One hotkey anywhere in Windows. Search every project, file and nickname at once — fuzzy matching included.</p></div>
-      <div class="feat"><div class="ico">🖱</div><h3>Drag & drop, both ways</h3><p>Drop files onto Krate to sort them into a project. Drag results out of the overlay straight into Premiere, Discord or Explorer.</p></div>
-      <div class="feat"><div class="ico">🔒</div><h3>Local-first</h3><p>Your files never leave your machine. Uninstall Krate and every folder is exactly where it always was.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-box"/></svg><h3>Projects as folders</h3><p>One default projects folder, or any custom location per project. No database — a tiny krate.json rides along in each folder.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-tag"/></svg><h3>Tags & statuses</h3><p>Preset tags like Edit, Video, App and Web plus unlimited custom tags with custom colors. Filter by tag or by Idea → Active → Done.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-layout"/></svg><h3>Folder templates</h3><p>Build structures in a visual tree editor and attach starter files that ship with every new project — or save any project's layout as a template.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pencil"/></svg><h3>File nicknames</h3><p>Call it “main clip”, not render_v7_FINAL2.mp4. Nicknames are searchable and show up as badges everywhere.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bolt"/></svg><h3>Global quick search</h3><p>One hotkey anywhere in Windows. Search every project, file, nickname and link at once — fuzzy matching included.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-graph"/></svg><h3>Graph view</h3><p>See one project — or your whole library — as an interactive Obsidian-style graph. Drag nodes, zoom, click to open.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bot"/></svg><h3>AI assistant</h3><p>Sign in to Claude, ChatGPT, Gemini or Copilot with your own account. One click copies a project's full context into the chat.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-link"/></svg><h3>Cloud links</h3><p>Attach Google Drive folders, Dropbox shares or repos to any project. They're searchable and open right from the overlay.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-star"/></svg><h3>Favorites</h3><p>Pin the projects you're working on — they float to the top of the grid and get their own filter.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-note"/></svg><h3>Notes & covers</h3><p>Descriptions, timestamped comments and a cover image per project, so your library is scannable at a glance.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-drag"/></svg><h3>Drag & drop, both ways</h3><p>Drop files onto Krate to sort them into a project. Drag results out of the overlay straight into Premiere, Discord or Explorer.</p></div>
+      <div class="feat rv"><svg class="fico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg><h3>Local-first</h3><p>Your files never leave your machine. Uninstall Krate and every folder is exactly where it always was.</p></div>
     </div>
   </div>
 </section>
 
 <section class="alt" id="search">
   <div class="container">
-    <h2 class="sec">Any file. One hotkey. Zero digging.</h2>
+    <h2 class="sec rv">Any file. One hotkey. Zero digging.</h2>
     <div class="split">
-      <div>
+      <div class="rv">
         <h3>The quick-search overlay</h3>
         <p>
           Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> in any app and start typing —
@@ -215,25 +306,26 @@
           <div><span class="k">drag a row</span> drop the file anywhere</div>
         </div>
       </div>
-      <div class="shot"><img src="img/overlay-search.png" alt="Krate quick-search overlay finding a file by its nickname" loading="lazy"></div>
+      <div class="shot tilt rv" style="--d:.12s"><img src="img/overlay-search.png" alt="Krate quick-search overlay finding a file by its nickname" loading="lazy"></div>
     </div>
   </div>
 </section>
 
-<section>
+<section id="graph">
   <div class="container">
     <div class="split">
-      <div class="shot"><img src="img/main-files.png" alt="Krate files view with nickname badges and folder tree" loading="lazy"></div>
-      <div>
-        <h3>Your structure, everywhere</h3>
+      <div class="shot tilt rv"><img src="img/main-graph.png" alt="Krate graph view — a project as an interactive node graph" loading="lazy"></div>
+      <div class="rv" style="--d:.12s">
+        <h3>Your library as a living graph</h3>
         <p>
-          Krate shows the real folder tree of each project — with nickname badges,
-          quick actions and drag & drop import.
+          Flip to <b>Graph View</b> and Krate lays out projects, tags, folders, files and
+          links as a force-directed graph — just like your favorite note app, but for
+          real files on disk.
         </p>
         <ul>
-          <li><b>Templates</b> — new “Video Edit” projects start with Footage/Raw, Audio/SFX, Exports and friends already in place.</li>
-          <li><b>Add files fast</b> — drop them on the window, they're copied into the right subfolder.</li>
-          <li><b>Open or reveal</b> — jump to any file in Explorer with one click.</li>
+          <li><b>Whole library</b> — projects cluster around shared tags.</li>
+          <li><b>Single project</b> — folders and files fan out, nicknames glow.</li>
+          <li><b>Interactive</b> — drag nodes, zoom, hover to highlight, click to open.</li>
         </ul>
       </div>
     </div>
@@ -242,27 +334,47 @@
 
 <section class="alt">
   <div class="container">
-    <h2 class="sec">Honest data storage</h2>
-    <p class="sec-sub">Everything Krate knows about a project lives inside the project folder itself — portable, syncable, yours.</p>
-    <div style="max-width:520px;margin:40px auto 0">
+    <div class="split">
+      <div class="rv">
+        <h3>Your structure, everywhere</h3>
+        <p>
+          Krate shows the real folder tree of each project — with nickname badges,
+          quick actions and drag & drop import.
+        </p>
+        <ul>
+          <li><b>Visual templates</b> — build folder structures in a tree editor, attach starter files, done.</li>
+          <li><b>Add files fast</b> — drop them on the window, they're copied into the right subfolder.</li>
+          <li><b>Open or reveal</b> — jump to any file in Explorer with one click.</li>
+        </ul>
+      </div>
+      <div class="shot tilt rv" style="--d:.12s"><img src="img/main-files.png" alt="Krate files view with nickname badges and folder tree" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2 class="sec rv">Honest data storage</h2>
+    <p class="sec-sub rv" style="--d:.08s">Everything Krate knows about a project lives inside the project folder itself — portable, syncable, yours.</p>
+    <div style="max-width:520px;margin:40px auto 0" class="rv">
       <pre class="tree">
 MyProject/
-├─ <b>krate.json</b>     ← title, tags, notes, nicknames, status
+├─ <b>krate.json</b>     ← title, tags, notes, links, nicknames
 ├─ <b>.krate/</b>        ← cover image
 └─ …your files, exactly as you put them</pre>
     </div>
   </div>
 </section>
 
-<section id="download">
+<section class="alt" id="download">
   <div class="container">
-    <h2 class="sec">Get Krate</h2>
-    <p class="sec-sub">Windows 10/11 · free & open source</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="Krate-Setup-1.0.0.exe">⬇ Krate-Setup-1.0.0.exe</a>
+    <h2 class="sec rv">Get Krate</h2>
+    <p class="sec-sub rv" style="--d:.08s">Windows 10/11 · free & open source</p>
+    <div class="cta-row rv" style="--d:.16s">
+      <a class="btn btn-primary" href="Krate-Setup-1.1.0.exe"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg> Krate-Setup-1.1.0.exe</a>
       <a class="btn" href="https://github.com/ImKirit/Krate/releases" target="_blank" rel="noopener">All releases</a>
     </div>
-    <p class="dl-note">Prefer building from source? <code>git clone</code> → <code>npm install</code> → <code>npm start</code></p>
+    <p class="dl-note rv" style="--d:.22s">Prefer building from source? <code>git clone</code> → <code>npm install</code> → <code>npm start</code></p>
   </div>
 </section>
 
@@ -271,6 +383,58 @@ MyProject/
   MIT licensed · made by <a href="https://imkirit.dev" target="_blank" rel="noopener">ImKirit</a> ·
   <a href="https://github.com/ImKirit/Krate" target="_blank" rel="noopener">source on GitHub</a>
 </footer>
+
+<script>
+  // scroll reveal — stagger siblings that share a parent
+  const groups = new Map();
+  document.querySelectorAll('.rv').forEach((el) => {
+    const p = el.parentElement;
+    if (!groups.has(p)) groups.set(p, 0);
+    if (!el.style.getPropertyValue('--d')) {
+      el.style.setProperty('--d', (groups.get(p) * 0.07) + 's');
+    }
+    groups.set(p, groups.get(p) + 1);
+  });
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.rv').forEach((el) => io.observe(el));
+
+  // 3D tilt on screenshots
+  document.querySelectorAll('.tilt').forEach((el) => {
+    let raf = 0;
+    el.addEventListener('mousemove', (ev) => {
+      const r = el.getBoundingClientRect();
+      const x = (ev.clientX - r.left) / r.width - 0.5;
+      const y = (ev.clientY - r.top) / r.height - 0.5;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        el.classList.add('tilting');
+        el.style.transform = `perspective(1100px) rotateY(${x * 5}deg) rotateX(${-y * 4.4}deg) scale(1.013)`;
+      });
+    });
+    el.addEventListener('mouseleave', () => {
+      cancelAnimationFrame(raf);
+      el.classList.remove('tilting');
+      el.style.transform = '';
+    });
+  });
+
+  // click ripple on buttons
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.btn');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const ink = document.createElement('span');
+    ink.className = 'ink';
+    ink.style.left = (e.clientX - r.left) + 'px';
+    ink.style.top = (e.clientY - r.top) + 'px';
+    btn.appendChild(ink);
+    setTimeout(() => ink.remove(), 600);
+  });
+</script>
 
 </body>
 </html>

@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, ipcMain, dialog, shell, globalShortcut,
-  screen, Tray, Menu, nativeImage,
+  screen, Tray, Menu, nativeImage, clipboard,
 } = require('electron');
 const path = require('path');
 const store = require('./store');
@@ -101,6 +101,59 @@ function createTray() {
   tray.on('click', showMain);
 }
 
+// --------------------------------------------------------------- ai window --
+// Embedded browser window where the user signs in to their own AI account
+// (no API keys). A Chrome UA is used so provider logins behave like a normal
+// browser; the session persists between launches.
+const AI_PROVIDERS = {
+  claude: 'https://claude.ai/new',
+  chatgpt: 'https://chatgpt.com/',
+  gemini: 'https://gemini.google.com/app',
+  copilot: 'https://copilot.microsoft.com/',
+};
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+let aiWin = null;
+
+function openAiWindow(provider) {
+  const url = AI_PROVIDERS[provider] || AI_PROVIDERS.claude;
+  if (aiWin && !aiWin.isDestroyed()) {
+    aiWin.show();
+    aiWin.focus();
+    if (aiWin._provider !== provider) aiWin.loadURL(url, { userAgent: CHROME_UA });
+    aiWin._provider = provider;
+    return;
+  }
+  aiWin = new BrowserWindow({
+    width: 1100, height: 800, minWidth: 700, minHeight: 500,
+    backgroundColor: '#0b0a10',
+    icon: ICON,
+    title: 'Krate — AI Assistant',
+    autoHideMenuBar: true,
+    webPreferences: {
+      partition: 'persist:krate-ai',
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  aiWin._provider = provider;
+  aiWin.webContents.setUserAgent(CHROME_UA);
+  // keep sign-in popups (Google/Microsoft OAuth) inside the same session
+  aiWin.webContents.setWindowOpenHandler(({ url: u }) => {
+    if (/^https:/.test(u)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          webPreferences: { partition: 'persist:krate-ai' },
+        },
+      };
+    }
+    return { action: 'deny' };
+  });
+  aiWin.on('closed', () => { aiWin = null; });
+  aiWin.loadURL(url, { userAgent: CHROME_UA });
+}
+
 // -------------------------------------------------------------------- ipc --
 function wireIpc() {
   ipcMain.handle('state:get', async () => ({
@@ -174,12 +227,38 @@ function wireIpc() {
     const dirs = await store.structureOf(p);
     const cfg = store.getConfig();
     const templates = cfg.templates.filter(t => t.name !== name);
-    templates.push({ name, dirs });
+    templates.push({ id: require('crypto').randomUUID(), name, dirs, files: [] });
     return store.saveConfig({ templates }).templates;
   });
 
+  ipcMain.handle('template:importFiles', async (e, { tplId }) => {
+    const r = await dialog.showOpenDialog(mainWin, {
+      properties: ['openFile', 'multiSelections'],
+      title: 'Attach files to template',
+    });
+    if (r.canceled) return [];
+    return store.importTemplateFiles(tplId, r.filePaths);
+  });
+
+  ipcMain.handle('template:deleteFiles', (e, { srcs }) => store.deleteTemplateFiles(srcs));
+
   ipcMain.handle('fs:open', (e, abs) => shell.openPath(abs));
   ipcMain.handle('fs:reveal', (e, abs) => { shell.showItemInFolder(abs); });
+  ipcMain.handle('fs:openExternal', (e, url) => {
+    if (/^https?:\/\//i.test(url)) return shell.openExternal(url);
+  });
+
+  ipcMain.handle('ai:open', async (e, { provider, projectPath }) => {
+    let copied = false;
+    if (projectPath) {
+      try {
+        clipboard.writeText(await store.buildContext(projectPath));
+        copied = true;
+      } catch { }
+    }
+    openAiWindow(provider || store.getConfig().aiProvider);
+    return { copied };
+  });
 
   ipcMain.handle('search:query', (e, q) => indexer.search(q));
   ipcMain.handle('overlay:browse', (e, { projectPath, rel }) => store.listDir(projectPath, rel));

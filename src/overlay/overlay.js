@@ -19,14 +19,10 @@ let browseCache = [];       // unfiltered entries of current browse level
 
 /* ------------------------------------------------------------- render --- */
 function iconFor(r) {
-  if (r.type === 'project') return '📦';
-  if (r.dir) return '📁';
-  const ext = r.name.split('.').pop().toLowerCase();
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'psd'].includes(ext)) return '🖼';
-  if (['mp4', 'mov', 'mkv', 'avi', 'webm'].includes(ext)) return '🎬';
-  if (['mp3', 'wav', 'flac', 'ogg', 'm4a'].includes(ext)) return '🎵';
-  if (['prproj', 'aep', 'veg', 'drp'].includes(ext)) return '🎞';
-  return '📄';
+  if (r.type === 'project') return window.KI.get('box', 'ri-proj');
+  if (r.type === 'link') return window.KI.forUrl(r.url);
+  if (r.dir) return window.KI.get('folder', 'fold-ico');
+  return window.KI.forFile(r.name);
 }
 
 function render() {
@@ -43,11 +39,11 @@ function render() {
     return;
   }
   $('results').innerHTML = results.map((r, i) => `
-    <div class="rrow ${i === sel ? 'sel' : ''}" data-i="${i}" draggable="true">
+    <div class="rrow ${i === sel ? 'sel' : ''}" data-i="${i}" draggable="true" style="--i:${Math.min(i, 12)}">
       <span class="ricon">${iconFor(r)}</span>
       <div class="rmain">
         <div class="rname">${esc(r.nickname || r.name)}</div>
-        <div class="rsub">${r.type === 'project' ? esc(r.abs) : esc((r.rel || '').split('/').slice(0, -1).join(' / ') || '/')}</div>
+        <div class="rsub">${r.type === 'project' ? esc(r.abs) : r.type === 'link' ? esc(r.url) : esc((r.rel || '').split('/').slice(0, -1).join(' / ') || '/')}</div>
       </div>
       ${r.nickname ? `<span class="rnick">${esc(r.name)}</span>` : ''}
       ${r.type !== 'project' ? `<span class="rchip" style="color:${r.tagColor};background:${r.tagColor}26">${esc(r.projectTitle)}</span>` : ''}
@@ -59,6 +55,7 @@ function render() {
     row.onclick = () => { sel = i; activate({ }); };
     row.addEventListener('dragstart', (e) => {
       e.preventDefault();
+      if (results[i].type === 'link') return;
       dragging = true;
       window.krate.startDrag(results[i].abs);
       setTimeout(() => { dragging = false; }, 600);
@@ -156,6 +153,11 @@ function up() {
 function activate({ ctrl = false, shift = false }) {
   const r = results[sel];
   if (!r) return;
+  if (r.type === 'link') {
+    window.krate.openExternal(r.url);
+    window.krate.hideOverlay();
+    return;
+  }
   if (shift) {
     window.krate.openInMain({ projectPath: r.projectPath, rel: r.type === 'project' ? '' : r.rel });
     return;
@@ -217,7 +219,18 @@ window.krate.on('overlay-shown', () => {
   sel = 0;
   render();
   $('q').focus();
+  // re-trigger the entrance animation (only when animations are enabled)
+  window.krate.getState().then((s) => {
+    document.body.classList.toggle('anim', s.config.animations !== false);
+    const p = $('panel');
+    p.classList.remove('pop');
+    void p.offsetWidth;
+    p.classList.add('pop');
+  });
 });
+
+$('qIco').innerHTML = window.KI.get('search');
+$('btnMode').innerHTML = window.KI.get('layout');
 
 window.krate.on('overlay-blur', () => {
   if (!dragging) window.krate.hideOverlay();

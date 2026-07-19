@@ -5,6 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self' 'unsafe-inline'">
   <title>Krate</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="ui2.css">
 </head>
 <body>
   <div id="app">
@@ -15,7 +16,8 @@
       </div>
 
       <nav id="statusNav">
-        <div class="nav-item active" data-status=""><span>All Projects</span><span class="count" id="countAll"></span></div>
+        <div class="nav-item active" data-status=""><span class="ico" data-icon="box"></span><span>All Projects</span><span class="count" id="countAll"></span></div>
+        <div class="nav-item" data-fav="1"><span class="ico fav-ico" data-icon="star"></span><span>Favorites</span><span class="count" id="countFav"></span></div>
         <div class="nav-item" data-status="active"><span class="dot dot-active"></span><span>Active</span></div>
         <div class="nav-item" data-status="idea"><span class="dot dot-idea"></span><span>Ideas</span></div>
         <div class="nav-item" data-status="paused"><span class="dot dot-paused"></span><span>Paused</span></div>
@@ -29,7 +31,9 @@
       <div id="tagList"></div>
 
       <div class="side-bottom">
-        <button class="side-btn" id="btnSettings">⚙ Settings</button>
+        <button class="side-btn" id="btnGraph"><span class="ico" data-icon="graph"></span> Graph View</button>
+        <button class="side-btn" id="btnAi"><span class="ico" data-icon="bot"></span> AI Assistant</button>
+        <button class="side-btn" id="btnSettings"><span class="ico" data-icon="gear"></span> Settings</button>
       </div>
     </aside>
 
@@ -37,13 +41,16 @@
       <!-- ============================= HOME ============================= -->
       <div id="homeView">
         <header class="topbar">
-          <input id="searchInput" type="text" placeholder="Search projects…  (Ctrl+F)" spellcheck="false">
+          <div class="search-wrap">
+            <span class="ico" data-icon="search"></span>
+            <input id="searchInput" type="text" placeholder="Search projects…  (Ctrl+F)" spellcheck="false">
+          </div>
           <select id="sortSelect">
             <option value="modified">Last modified</option>
             <option value="created">Newest</option>
             <option value="name">Name A–Z</option>
           </select>
-          <button class="btn btn-primary" id="btnNew">+ New Project</button>
+          <button class="btn btn-primary" id="btnNew"><span class="ico" data-icon="plus"></span> New Project</button>
         </header>
         <div id="projectGrid"></div>
       </div>
@@ -51,23 +58,27 @@
       <!-- ============================ DETAIL ============================ -->
       <div id="detailView" hidden>
         <header class="det-head">
-          <button class="btn btn-ghost" id="btnBack">←</button>
+          <button class="btn btn-ghost" id="btnBack" title="Back"><span class="ico" data-icon="arrowLeft"></span></button>
           <div class="det-cover" id="detCover" title="Click to set a cover image"></div>
           <div class="det-info">
-            <input id="detTitle" class="title-input" spellcheck="false">
+            <div class="det-title-row">
+              <input id="detTitle" class="title-input" spellcheck="false">
+              <button class="star-btn" id="btnFav" title="Pin to favorites"></button>
+            </div>
             <div class="det-meta">
               <select id="detStatus">
-                <option value="idea">💡 Idea</option>
-                <option value="active">🟢 Active</option>
-                <option value="paused">⏸ Paused</option>
-                <option value="done">✅ Done</option>
-                <option value="archived">📦 Archived</option>
+                <option value="idea">Idea</option>
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="done">Done</option>
+                <option value="archived">Archived</option>
               </select>
               <div id="detTags" class="chip-row"></div>
             </div>
             <div class="muted small" id="detPath"></div>
           </div>
-          <button class="btn btn-ghost" id="btnRevealProject" title="Open project folder in Explorer">📂 Explorer</button>
+          <button class="btn btn-ghost" id="btnAiProject" title="Copy project context & open AI assistant"><span class="ico" data-icon="bot"></span> Ask AI</button>
+          <button class="btn btn-ghost" id="btnRevealProject" title="Open project folder in Explorer"><span class="ico" data-icon="explorer"></span> Explorer</button>
         </header>
 
         <div class="tabs" id="detTabs">
@@ -80,9 +91,16 @@
           <div class="pane-col">
             <h3>Description</h3>
             <textarea id="detDesc" placeholder="What is this project about?" spellcheck="false"></textarea>
+            <h3 style="margin-top:14px">Links <span class="muted small" style="letter-spacing:0;font-weight:400">— Google Drive, Dropbox, GitHub, anything</span></h3>
+            <div id="linkList"></div>
+            <div class="link-add">
+              <input type="text" id="linkTitle" placeholder="Title (e.g. Footage on Drive)" spellcheck="false">
+              <input type="text" id="linkUrl" placeholder="https://…" spellcheck="false">
+              <button class="btn" id="btnAddLink"><span class="ico" data-icon="plus"></span></button>
+            </div>
           </div>
           <div class="pane-col">
-            <h3>Notes & Comments</h3>
+            <h3>Notes &amp; Comments</h3>
             <div class="note-add">
               <textarea id="noteInput" rows="2" placeholder="Add a note…  (Ctrl+Enter)" spellcheck="false"></textarea>
               <button class="btn btn-primary" id="btnAddNote">Add</button>
@@ -93,9 +111,9 @@
 
         <section id="tabFiles" class="tabpane" hidden>
           <div class="files-toolbar">
-            <button class="btn" id="btnAddFiles">＋ Add Files</button>
-            <button class="btn" id="btnNewFolder">🗀 New Folder</button>
-            <button class="btn" id="btnSaveTpl">☰ Save structure as template</button>
+            <button class="btn" id="btnAddFiles"><span class="ico" data-icon="upload"></span> Add Files</button>
+            <button class="btn" id="btnNewFolder"><span class="ico" data-icon="folder"></span> New Folder</button>
+            <button class="btn" id="btnSaveTpl"><span class="ico" data-icon="layout"></span> Save structure as template</button>
             <span class="muted small" id="dropTarget"></span>
           </div>
           <div id="fileTree" class="file-tree"></div>
@@ -114,16 +132,29 @@
           <div class="settings-block danger-zone">
             <h3>Danger zone</h3>
             <button class="btn" id="btnUnregister" hidden>Remove from library (keep files)</button>
-            <button class="btn btn-danger" id="btnDeleteProject">🗑 Delete project (Recycle Bin)</button>
+            <button class="btn btn-danger" id="btnDeleteProject"><span class="ico" data-icon="trash"></span> Delete project (Recycle Bin)</button>
           </div>
         </section>
+      </div>
+
+      <!-- ============================ GRAPH ============================= -->
+      <div id="graphView" hidden>
+        <div class="graph-hud">
+          <button class="btn btn-ghost" id="btnGraphBack"><span class="ico" data-icon="arrowLeft"></span></button>
+          <select id="graphScope"></select>
+          <span class="muted small graph-hint">drag nodes · scroll to zoom · drag background to pan · click to open</span>
+        </div>
+        <canvas id="graphCanvas"></canvas>
       </div>
     </main>
   </div>
 
   <div id="modalBackdrop" hidden><div id="modalBox"></div></div>
+  <div id="toast"></div>
 
+  <script src="icons.js"></script>
   <script src="demo.js"></script>
+  <script src="graph.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

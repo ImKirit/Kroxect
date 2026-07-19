@@ -23,6 +23,14 @@ async function buildIndex() {
       tagColor: tagColor(p.meta.tags),
       rel: '', abs: p.path, name: p.meta.title, nickname: null, dir: true,
     });
+    for (const l of p.meta.links || []) {
+      out.push({
+        type: 'link',
+        projectPath: p.path, projectTitle: p.meta.title,
+        tagColor: tagColor(p.meta.tags),
+        rel: '', abs: l.url, url: l.url, name: l.title || l.url, nickname: null, dir: false,
+      });
+    }
     const tree = await store.readTree(p.path);
     const walk = (nodes) => {
       for (const n of nodes) {
@@ -78,6 +86,7 @@ async function search(query) {
       matchScore(q, e.nickname) * 3,
       matchScore(q, e.name) * 2,
       e.type === 'project' ? matchScore(q, e.projectTitle) * 2.5 : 0,
+      e.type === 'link' ? matchScore(q, e.url) * 1.2 : 0,
     );
     if (s > 0) {
       const depth = e.rel ? e.rel.split('/').length : 0;

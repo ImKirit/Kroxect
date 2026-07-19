@@ -50,6 +50,25 @@ app.whenReady().then(async () => {
   await sleep(500);
   await capMain('main-files.png');
 
+  // ---- graph view --------------------------------------------------------
+  await main.webContents.executeJavaScript(`document.getElementById('btnGraph').click()`);
+  await sleep(2600); // let the force layout settle
+  await capMain('main-graph.png');
+
+  // ---- settings: visual template editor ---------------------------------
+  await main.webContents.executeJavaScript(`
+    document.getElementById('btnGraphBack').click();
+    document.getElementById('btnSettings').click();`);
+  await sleep(500);
+  await main.webContents.executeJavaScript(`
+    (() => { // scroll the modal down to the template tree editor
+      const tree = document.getElementById('tplTree');
+      if (tree) tree.scrollIntoView({ block: 'center' });
+    })()`);
+  await sleep(500);
+  await capMain('main-settings.png');
+  await main.webContents.executeJavaScript(`document.getElementById('modalBackdrop').hidden = true`);
+
   // ---- overlay: search results ------------------------------------------
   const overlay = new BrowserWindow({
     width: 720, height: 540, show: false, transparent: true, frame: false,

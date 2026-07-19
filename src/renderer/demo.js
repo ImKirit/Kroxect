@@ -38,7 +38,11 @@ if (!window.krate) {
       path: 'D:\\Projects\\Neon Skies AMV',
       meta: {
         id: '1', title: 'Neon Skies AMV', description: 'Anime edit for the summer collab.\n\nDeadline: end of month. Style: fast flow + glow transitions, 24 fps interpolated to 60.',
-        tags: ['Edit', 'Video'], status: 'active', cover: null, color: '#a855f7',
+        tags: ['Edit', 'Video'], status: 'active', cover: null, color: '#a855f7', favorite: true,
+        links: [
+          { id: 'l1', title: 'Footage on Drive', url: 'https://drive.google.com/drive/folders/abc123' },
+          { id: 'l2', title: 'Collab GitHub repo', url: 'https://github.com/imkirit/neon-skies' },
+        ],
         notes: [
           { id: 'n1', text: 'Beat drop at 0:42 — sync the katana slash there', date: iso(90) },
           { id: 'n2', text: 'Rendered v2 preview, colors too crushed. Lift shadows next pass.', date: iso(1500) },
@@ -74,7 +78,8 @@ if (!window.krate) {
       path: 'D:\\Projects\\Portfolio v3',
       meta: {
         id: '3', title: 'Portfolio v3', description: 'New portfolio — Astro + custom shader background.',
-        tags: ['Web', 'Design'], status: 'active', cover: null, color: '#38bdf8',
+        tags: ['Web', 'Design'], status: 'active', cover: null, color: '#38bdf8', favorite: true,
+        links: [{ id: 'l3', title: 'Inspiration board', url: 'https://www.dropbox.com/sh/portfolio-refs' }],
         notes: [], nicknames: { 'src/shader/bg.glsl': 'the shader' }, created: iso(20000), modified: iso(600),
       },
       tree: [D('src', 'src', [D('shader', 'src/shader', [F('bg.glsl', 'src/shader/bg.glsl', 4096)])]), D('assets', 'assets', [])],
@@ -108,10 +113,18 @@ if (!window.krate) {
     },
   ];
 
+  for (const p of projects) {
+    p.meta.favorite = !!p.meta.favorite;
+    p.meta.links = p.meta.links || [];
+  }
+
   const flat = [];
   for (const p of projects) {
     const tagColor = (config.tags.find((t) => p.meta.tags.includes(t.name)) || { color: '#a855f7' }).color;
     flat.push({ type: 'project', projectPath: p.path, projectTitle: p.meta.title, tagColor, rel: '', abs: p.path, name: p.meta.title, nickname: null, dir: true });
+    for (const l of p.meta.links) {
+      flat.push({ type: 'link', projectPath: p.path, projectTitle: p.meta.title, tagColor, rel: '', abs: l.url, url: l.url, name: l.title, nickname: null, dir: false });
+    }
     const walk = (nodes) => {
       for (const n of nodes) {
         flat.push({
@@ -141,6 +154,8 @@ if (!window.krate) {
     deleteProject: async () => false,
     unregisterProject: async () => true,
     saveTemplateFromProject: async () => config.templates,
+    tplImportFiles: async () => [],
+    tplDeleteFiles: async () => { },
     open: async () => { }, reveal: async () => { },
     search: async (q) => {
       const s = (t) => {
@@ -165,6 +180,8 @@ if (!window.krate) {
     },
     hideOverlay: async () => { }, openInMain: async () => { },
     startDrag: () => { }, pathForFile: () => '',
+    openExternal: async () => { },
+    aiOpen: async () => ({ copied: true }),
     on: () => { },
   };
 }

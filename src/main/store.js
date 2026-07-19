@@ -44,6 +44,8 @@ const DEFAULT_CONFIG = {
   hotkey: 'Control+Alt+K',
   tags: DEFAULT_TAGS,
   templates: DEFAULT_TEMPLATES,
+  animations: true,
+  aiProvider: 'claude',
 };
 
 // ---------------------------------------------------------------- config --
@@ -54,6 +56,11 @@ function init(userDataPath) {
     config = { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
   } catch {
     config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  }
+  // migrate templates: stable ids + attached-files support
+  for (const t of config.templates) {
+    if (!t.id) t.id = crypto.randomUUID();
+    if (!t.files) t.files = [];
   }
 }
 
@@ -87,6 +94,8 @@ async function readMeta(projectPath) {
   meta.notes = meta.notes || [];
   meta.nicknames = meta.nicknames || {};
   meta.tags = meta.tags || [];
+  meta.links = meta.links || [];
+  meta.favorite = !!meta.favorite;
   return meta;
 }
 
@@ -136,6 +145,14 @@ async function createProject({ name, location, tags = [], template = null, descr
     for (const d of tpl.dirs) {
       await fsp.mkdir(path.join(dir, ...d.split('/')), { recursive: true });
     }
+    // copy the template's attached starter files into the new project
+    for (const f of tpl.files || []) {
+      try {
+        const dest = path.join(dir, ...f.rel.split('/'));
+        await fsp.mkdir(path.dirname(dest), { recursive: true });
+        await fsp.copyFile(f.src, dest);
+      } catch { /* source file gone — skip */ }
+    }
   }
 
   const now = new Date().toISOString();
@@ -147,7 +164,9 @@ async function createProject({ name, location, tags = [], template = null, descr
     status: 'active',
     cover: null,
     color: '#a855f7',
+    favorite: false,
     notes: [],
+    links: [],
     nicknames: {},
     created: now,
     modified: now,
@@ -293,10 +312,72 @@ async function structureOf(projectPath) {
   return dirs;
 }
 
+// ------------------------------------------------------ template files ---
+// Files attached to a template are copied into userData/template-files/<tplId>/
+// so they keep working even if the original source file is moved or deleted.
+function templateFilesRoot() { return path.join(userData, 'template-files'); }
+
+async function importTemplateFiles(tplId, absPaths) {
+  const dir = path.join(templateFilesRoot(), String(tplId).replace(/[^a-z0-9-]/gi, ''));
+  await fsp.mkdir(dir, { recursive: true });
+  const out = [];
+  for (const src of absPaths) {
+    try {
+      const st = await fsp.stat(src);
+      if (!st.isFile()) continue;
+      const name = path.basename(src);
+      const stored = path.join(dir, crypto.randomUUID().slice(0, 8) + '_' + name);
+      await fsp.copyFile(src, stored);
+      out.push({ src: stored, name, size: st.size });
+    } catch { /* unreadable — skip */ }
+  }
+  version++;
+  return out;
+}
+
+async function deleteTemplateFiles(srcs) {
+  const root = path.resolve(templateFilesRoot()).toLowerCase();
+  for (const src of srcs || []) {
+    const r = path.resolve(src).toLowerCase();
+    if (r.startsWith(root)) await fsp.rm(src, { force: true }).catch(() => { });
+  }
+  version++;
+}
+
+// plain-text summary of a project, made to be pasted into an AI chat
+async function buildContext(projectPath) {
+  const meta = await readMeta(projectPath);
+  const tree = await readTree(projectPath);
+  const lines = [];
+  lines.push(`# Project: ${meta.title}`);
+  lines.push(`Status: ${meta.status} · Tags: ${meta.tags.join(', ') || '—'} · Folder: ${projectPath}`);
+  if (meta.description) lines.push(`\n## Description\n${meta.description}`);
+  if (meta.notes.length) {
+    lines.push('\n## Notes');
+    for (const n of meta.notes) lines.push(`- [${n.date.slice(0, 10)}] ${n.text}`);
+  }
+  if (meta.links.length) {
+    lines.push('\n## Links');
+    for (const l of meta.links) lines.push(`- ${l.title}: ${l.url}`);
+  }
+  lines.push('\n## File tree' + (Object.keys(meta.nicknames).length ? ' (nickname in [brackets])' : ''));
+  const walk = (nodes, ind) => {
+    for (const n of nodes) {
+      const nick = meta.nicknames[n.rel];
+      lines.push(`${'  '.repeat(ind)}${n.dir ? '📁' : '-'} ${n.name}${nick ? ` [${nick}]` : ''}`);
+      if (n.children) walk(n.children, ind + 1);
+    }
+  };
+  walk(tree, 0);
+  lines.push('\nYou are helping me with this project. Answer questions about it, help me find files, and suggest how to organize it.');
+  return lines.join('\n');
+}
+
 module.exports = {
-  init, getConfig, saveConfig, getVersion, bump,
+  init, getConfig, saveConfig, getVersion, bump, buildContext,
   listProjects, createProject, unregisterProject,
   readMeta, writeMeta, readTree, listDir,
   importPaths, newFolder, setCoverFromFile, structureOf,
+  importTemplateFiles, deleteTemplateFiles,
   toRel, sanitizeName,
 };
