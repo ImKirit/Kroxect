@@ -159,22 +159,49 @@ const OPENAI_TOOLS = TOOLS.map((t) => ({
   function: { name: t.name, description: t.description, parameters: t.input_schema },
 }));
 
-async function askOpenAICompat({ baseUrl, apiKey, model, history, onActivity }) {
+async function askOpenAICompat({ provider, baseUrl, apiKey, model, history, onActivity }) {
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
   const messages = [
     { role: 'system', content: SYSTEM },
     ...history.map((m) => ({ role: m.role, content: m.content })),
   ];
+  let useTools = true;
+  let toolFails = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
+    const payload = { model, messages };
+    if (useTools) {
+      payload.tools = OPENAI_TOOLS;
+      payload.tool_choice = 'auto';
+      // Groq's llama models are unreliable with parallel calls
+      if (provider === 'groq') payload.parallel_tool_calls = false;
+    }
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, messages, tools: OPENAI_TOOLS, tool_choice: 'auto' }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      throw new Error(`${res.status} ${res.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`);
+      let code = '';
+      try { code = JSON.parse(body).error.code; } catch { }
+      // The model produced a malformed tool call (common with Groq's llama
+      // models). Retry once; if it keeps happening, answer without tools but
+      // hand the model the library overview so it still knows the projects.
+      if (code === 'tool_use_failed' && toolFails < 2) {
+        toolFails++;
+        onActivity('tool call failed, retrying' + (toolFails === 2 ? ' without tools' : ''));
+        if (toolFails === 2) {
+          useTools = false;
+          const overview = await runTool('list_projects', {}).catch(() => 'unavailable');
+          messages.push({
+            role: 'system',
+            content: 'Tool calling is unavailable right now. Answer from this library overview instead:\n' + String(overview).slice(0, 12000),
+          });
+        }
+        continue;
+      }
+      throw new Error(`${res.status} ${res.statusText}${body ? ` (${body.slice(0, 300)})` : ''}`);
     }
     const data = await res.json();
     const msg = data.choices && data.choices[0] && data.choices[0].message;
@@ -208,7 +235,7 @@ async function ask({ config, history, onActivity = () => { } }) {
   if (!baseUrl) throw new Error('No base URL set for the custom provider.');
   const model = ai.model || (ai.provider === 'groq' ? 'llama-3.3-70b-versatile' : '');
   if (!model) throw new Error('No model set for the custom provider.');
-  return askOpenAICompat({ baseUrl, apiKey: ai.apiKey, model, history, onActivity });
+  return askOpenAICompat({ provider: ai.provider, baseUrl, apiKey: ai.apiKey, model, history, onActivity });
 }
 
 // Minimal 1-request connection check with explicit settings (used by the

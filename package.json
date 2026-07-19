@@ -1,7 +1,7 @@
 {
   "name": "krate",
   "productName": "Krate",
-  "version": "1.3.0",
+  "version": "1.0.0",
   "description": "Local-first project organizer with tags, folder templates, file nicknames and a global quick-search overlay.",
   "author": "ImKirit <main@kirit.xyz>",
   "license": "MIT",

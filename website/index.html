@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Krate — every project, packed and findable</title>
+  <title>Krate: every project, packed and findable</title>
   <meta name="description" content="Krate is a local-first project organizer for Windows. Tags, folder templates, file nicknames, a graph view, a built-in AI agent and a global quick search. Free and open source.">
-  <meta property="og:title" content="Krate — every project, packed and findable">
+  <meta property="og:title" content="Krate: every project, packed and findable">
   <meta property="og:description" content="Local-first project organizer for Windows with tags, templates, nicknames, graph view, AI agent and global quick search.">
   <meta property="og:image" content="https://imkirit.dev/krate/img/main-home.png">
   <meta property="og:url" content="https://imkirit.dev/krate/">
@@ -70,6 +70,7 @@
       transition: transform 0.3s var(--spring);
     }
     .logo-mark:hover { transform: rotate(-8deg) scale(1.1); }
+    img.logo-mark { object-fit: cover; border: 2px solid var(--border); background: none; }
     .logo-text { font-weight: 800; letter-spacing: 3px; font-size: 16px; }
     .nav-links { margin-left: auto; display: flex; gap: 24px; font-size: 14px; font-weight: 600; }
     .nav-links a { color: var(--muted); position: relative; padding: 2px 0; transition: color 0.15s; }
@@ -262,7 +263,7 @@
 
 <nav>
   <div class="nav-inner">
-    <div class="logo-mark">K</div>
+    <img class="logo-mark" src="img/icon.png" alt="Krate">
     <div class="logo-text">KRATE</div>
     <div class="nav-links">
       <a href="#features">Features</a>
@@ -283,7 +284,7 @@
     from anywhere with one hotkey, see them as a graph, or ask the built-in AI agent.
   </p>
   <div class="cta-row hi hi-3">
-    <a class="btn btn-primary" href="Krate-Setup-1.3.0.exe"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg> Download for Windows</a>
+    <a class="btn btn-primary" href="Krate-Setup-1.0.0.exe"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg> Download for Windows</a>
     <a class="btn" href="https://github.com/ImKirit/Krate" target="_blank" rel="noopener"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-gh"/></svg> View on GitHub</a>
   </div>
   <div class="hero-meta hi hi-4">Free and open source · MIT · no account, no cloud, no tracking</div>
@@ -394,7 +395,7 @@
 <section>
   <div class="container">
     <h2 class="sec rv">Three looks, your accent</h2>
-    <p class="sec-sub rv" style="--d:.08s">White with black accents by default. Click a card and this page switches with it — the app works the same way, plus any accent color you like.</p>
+    <p class="sec-sub rv" style="--d:.08s">White with black accents by default. Click a card and this page switches with it. The app works the same way, plus any accent color you like.</p>
     <div class="themes rv" style="--d:.14s">
       <button class="theme-card on" data-theme="" type="button">
         <div class="theme-top" style="background:#f4f4f1"><span class="sw" style="background:#15151a"></span><span class="sw" style="background:#ffffff;border:2px solid #dcdcd3"></span></div>
@@ -431,7 +432,7 @@ MyProject/
     <h2 class="sec rv">Get Krate</h2>
     <p class="sec-sub rv" style="--d:.08s">Windows 10/11 · free and open source</p>
     <div class="cta-row rv" style="--d:.16s">
-      <a class="btn btn-primary" href="Krate-Setup-1.3.0.exe"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg> Krate-Setup-1.3.0.exe</a>
+      <a class="btn btn-primary" href="Krate-Setup-1.0.0.exe"><svg class="bico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg> Krate-Setup-1.0.0.exe</a>
       <a class="btn" href="https://github.com/ImKirit/Krate/releases" target="_blank" rel="noopener">All releases</a>
     </div>
     <p class="dl-note rv" style="--d:.22s">Prefer building from source? <code>git clone</code>, then <code>npm install</code> and <code>npm start</code>.</p>
@@ -439,7 +440,7 @@ MyProject/
 </section>
 
 <footer>
-  <div class="logo-line"><div class="logo-mark">K</div><div class="logo-text">KRATE</div></div>
+  <div class="logo-line"><img class="logo-mark" src="img/icon.png" alt="Krate"><div class="logo-text">KRATE</div></div>
   MIT licensed · made by <a href="https://imkirit.dev" target="_blank" rel="noopener">ImKirit</a> ·
   <a href="https://github.com/ImKirit/Krate" target="_blank" rel="noopener">source on GitHub</a>
 </footer>

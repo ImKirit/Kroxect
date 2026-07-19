@@ -57,7 +57,7 @@ if (!window.krate) {
           { id: 'l2', title: 'Collab GitHub repo', url: 'https://github.com/imkirit/neon-skies' },
         ],
         notes: [
-          { id: 'n1', text: 'Beat drop at 0:42 — sync the katana slash there', date: iso(90) },
+          { id: 'n1', text: 'Beat drop at 0:42, sync the katana slash there', date: iso(90) },
           { id: 'n2', text: 'Rendered v2 preview, colors too crushed. Lift shadows next pass.', date: iso(1500) },
         ],
         nicknames: { 'Footage/Selected/fight_scene_4k.mp4': 'main clip', 'Audio/Music/track_final.wav': 'the track', 'Exports/preview_v2.mp4': 'latest render' },
@@ -90,7 +90,7 @@ if (!window.krate) {
     {
       path: 'D:\\Projects\\Portfolio v3',
       meta: {
-        id: '3', title: 'Portfolio v3', description: 'New portfolio — Astro + custom shader background.',
+        id: '3', title: 'Portfolio v3', description: 'New portfolio. Astro plus a custom shader background.',
         tags: ['Web', 'Design'], status: 'active', cover: null, color: '#38bdf8', favorite: true,
         links: [{ id: 'l3', title: 'Inspiration board', url: 'https://www.dropbox.com/sh/portfolio-refs' }],
         notes: [], nicknames: { 'src/shader/bg.glsl': 'the shader' }, created: iso(20000), modified: iso(600),
@@ -109,7 +109,7 @@ if (!window.krate) {
     {
       path: 'D:\\Projects\\Beat Pack 01',
       meta: {
-        id: '5', title: 'Beat Pack 01', description: 'First sample pack — 12 loops, 140 BPM.',
+        id: '5', title: 'Beat Pack 01', description: 'First sample pack: 12 loops, 140 BPM.',
         tags: ['Music'], status: 'idea', cover: null, color: '#8b5cf6',
         notes: [], nicknames: {}, created: iso(3000), modified: iso(3000),
       },
@@ -118,7 +118,7 @@ if (!window.krate) {
     {
       path: 'D:\\Projects\\History Presentation',
       meta: {
-        id: '6', title: 'History Presentation', description: 'Weimar Republic — 15 slides + notes.',
+        id: '6', title: 'History Presentation', description: 'Weimar Republic, 15 slides plus notes.',
         tags: ['School'], status: 'done', cover: null, color: '#f59e0b',
         notes: [], nicknames: {}, created: iso(50000), modified: iso(40000),
       },
@@ -159,7 +159,7 @@ if (!window.krate) {
     getState: async () => ({ config, projects: projects.map((p) => ({ path: p.path, meta: p.meta })), version: 'demo' }),
     saveConfig: async (partial) => { Object.assign(config, partial); return { config, hotkey: { ok: true } }; },
     pickFolder: async () => null,
-    createProject: async () => { throw new Error('Demo mode — download Krate to create real projects.'); },
+    createProject: async () => { throw new Error('Demo mode. Download Krate to create real projects.'); },
     loadProject: async (path) => ({ meta: find(path).meta, tree: find(path).tree }),
     saveMeta: async ({ path, meta }) => { const p = find(path); p.meta = { ...meta, modified: new Date().toISOString() }; return p.meta; },
     setCover: async () => null,

@@ -60,6 +60,11 @@ app.whenReady().then(async () => {
   await sleep(900);
   await capMain('main-stats.png');
 
+  // ---- trash view --------------------------------------------------------
+  await main.webContents.executeJavaScript(`document.getElementById('btnTrash').click()`);
+  await sleep(700);
+  await capMain('main-trash.png');
+
   // ---- AI panel (demo answer) -------------------------------------------
   await main.webContents.executeJavaScript(`
     document.getElementById('btnAi').click();

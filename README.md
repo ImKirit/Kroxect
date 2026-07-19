@@ -1,21 +1,21 @@
 <div align="center">
 
-<img src="build/icon.png" width="96" alt="Krate logo">
+<img src="build/icon.png" width="110" alt="Krate logo">
 
 # Krate
 
 **Every project, packed and findable.**
 
 A local-first project organizer for Windows. Tag your projects, template their
-folder structure, nickname the files that matter, and pull any of them up from
+folder structure, nickname the files that matter, then pull any of them up from
 anywhere with one hotkey. View your library as a graph, link your cloud drives,
-and ask the built-in AI agent about your own projects.
+and ask the built-in AI agent where things are.
 
 [![Release](https://img.shields.io/github/v/release/ImKirit/Krate?color=15151a&label=download)](https://github.com/ImKirit/Krate/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-70706a)](LICENSE)
-[![Website](https://img.shields.io/badge/website-imkirit.dev%2Fkrate-15151a)](https://imkirit.dev/krate)
+[![License](https://img.shields.io/badge/license-MIT-15151a)](LICENSE)
+[![Website](https://img.shields.io/badge/website-imkirit.dev%2Fkrate-f5b301)](https://imkirit.dev/krate)
 
-<img src="docs/main-home.png" width="800" alt="Krate library view">
+<img src="docs/main-home.png" width="820" alt="Krate library view">
 
 </div>
 
@@ -26,93 +26,97 @@ and ask the built-in AI agent about your own projects.
 Started as a tool for organizing video edits: footage, SFX, project files and
 renders scattered everywhere, never findable when needed. Krate grew into a
 general project organizer. **Every project is a normal folder on your disk**,
-plus a small `krate.json` that Krate uses to store its metadata. No database,
-no cloud, no lock-in. Delete Krate and your files are exactly where they
-always were.
+plus a small `krate.json` that stores its metadata. No database, no cloud, no
+lock-in. Uninstall Krate and your files are exactly where they always were.
+
+## Up and running in 5 steps
+
+1. **Install** the [latest release](https://github.com/ImKirit/Krate/releases/latest) and launch it. A short setup wizard asks for your projects folder and can adopt the folders already inside it as projects.
+2. **Create a project** with the New Project button. Pick a template like "Video Edit" and the folder structure (plus any starter files) is created for you.
+3. **Nickname your key files** in the Files tab: right side of any row, pencil icon. "main clip" beats `render_v7_FINAL2.mp4`.
+4. **Press `Ctrl+Alt+K` anywhere in Windows.** Type a name or nickname, hit Enter to open, or drag the result straight into Premiere, Discord or a browser.
+5. **Optional:** add an AI key in Settings and ask things like "where is the render of my last edit?" The agent searches your actual library before it answers.
 
 ## Features
 
-**Projects as folders.** Pick a default projects folder once; every new
-project lives there, or anywhere else you choose per project. Projects found
-on disk are picked up automatically.
+### Organize
 
-**Tags and statuses.** Preset tags (Edit, Video, App, Web, Design, and more)
-plus your own tags with custom colors. Filter by tag or by status
-(Idea / Active / Paused / Done / Archived). The tag list in the sidebar is
-collapsible.
+- **Projects as folders.** One default projects folder, or any custom location per project. Existing folders can be adopted with one click.
+- **Tags and statuses.** Preset tags (Edit, Video, App, Web, ...) plus custom tags with custom colors. Filter by tag or by Idea / Active / Paused / Done / Archived.
+- **Folder templates.** Build structures in a visual tree editor and attach starter files that are copied into every new project. Any existing project's layout can be saved as a template.
+- **Favorites.** Pinned projects float to the top of the grid and get their own filter.
+- **Cloud links and relations.** Attach Google Drive folders, Dropbox shares or repos to a project, and link projects to each other.
 
-**Folder templates.** Build folder structures in a visual tree editor and
-attach starter files that get copied into every new project created from the
-template. You can also save any existing project's structure as a template.
+### Find
 
-**Favorites.** Pin the projects you are working on. They float to the top of
-the grid and get their own sidebar filter.
+- **Global quick search.** One hotkey (default `Ctrl+Alt+K`) anywhere in Windows. Searches projects, files, nicknames and links at once, with fuzzy matching. Results can be dragged into any app.
+- **File nicknames.** Searchable names for the files that matter, shown as badges everywhere.
+- **Graph view.** The whole library as an interactive map: projects, tags, folders, files and links. Related projects are connected with dashed edges.
+- **Built-in AI agent.** Lives in a side panel and in the quick search bar. It lists, searches and reads your projects with real tools before answering. Works with a Claude or Groq API key, or embed Claude, ChatGPT, Gemini or Copilot and sign in with your account.
+- **Stats and duplicates.** Projects per status and tag, sizes, biggest projects, plus a duplicate finder for identical files across the library.
 
-**Cloud links and related projects.** Attach Google Drive folders, Dropbox
-shares, OneDrive files or repos to a project. Link projects to each other;
-the connections show up in the graph. All of it is searchable.
+### Automate and more
 
-**Built-in AI agent.** An AI panel inside the app, like in your code editor.
-The agent answers questions about your library using real tools: it lists
-projects, runs searches and reads text files. Use a Claude API key (official
-Anthropic SDK), a Groq key, or any OpenAI-style endpoint. Prefer signing in
-with an account instead? Web mode embeds Claude, ChatGPT, Gemini or Copilot
-in the panel. The agent is also available inside the quick search bar.
+- **Watch folder.** Krate can watch your Downloads folder and offer to sort new files into a project.
+- **Drag and drop, both ways.** Drop files onto Krate to import them, drag search results out into other apps.
+- **Trash and ZIP export.** Deleted projects land in a restorable trash. Any project exports as a ZIP with its metadata included.
+- **Autostart.** Starts with Windows in the background (tray plus hotkey), so quick search is always one keypress away. Toggle in Settings.
+- **Portable mode and krate:// links.** Run from a USB stick (`krate-portable.txt` next to the exe), and open projects from anywhere with `krate://project-name` links.
+- **Three themes.** Light (white with black accents, the default), Dark, and the classic Krate Purple, plus a free accent color. Animations are switchable too.
 
-**Graph view.** See one project or your whole library as an interactive
-graph: projects, tags, folders, files, links, and dashed edges between
-related projects. Drag nodes, zoom, click to open.
+## Screens
 
-**Quick search overlay.** Press the global hotkey (default `Ctrl+Alt+K`)
-anywhere in Windows. A compact bar opens and expands as results come in.
-It searches all projects, files, nicknames and links at once, browses your
-folder structure in browse mode, and answers questions in AI mode.
+| | |
+|---|---|
+| **Project overview** with description, notes, cloud links and related projects | **Files tab** with nickname badges, custom file-type icons and drag and drop |
+| <img src="docs/main-overview.png" width="420"> | <img src="docs/main-files.png" width="420"> |
+| **Graph view**: the full structure of every project as one map | **AI panel**: an agent with real tools over your library |
+| <img src="docs/main-graph.png" width="420"> | <img src="docs/main-ai.png" width="420"> |
+| **Stats** with sizes, status and tag breakdowns | **Trash**: deleted projects are restorable |
+| <img src="docs/main-stats.png" width="420"> | <img src="docs/main-trash.png" width="420"> |
+| **Settings** with the visual template editor | **Quick search** finding a file by its nickname |
+| <img src="docs/main-settings.png" width="420"> | <img src="docs/overlay-search.png" width="420"> |
 
-<div align="center">
-<img src="docs/overlay-search.png" width="620" alt="Quick search overlay">
-</div>
+## Quick search keys
 
-**File nicknames.** Name a file what it *is* ("main clip", "the track",
-"final render") instead of what it is called (`render_v7_FINAL2.mp4`).
+| Key | Action |
+| --- | --- |
+| `Ctrl+Alt+K` | Open / close (configurable in Settings) |
+| `↑` `↓` | Select result |
+| `Enter` | Open file / enter folder |
+| `Ctrl+Enter` | Show in Explorer |
+| `Shift+Enter` | Open in the Krate window |
+| `Tab` | Toggle search / browse mode |
+| `Ctrl+Space` | AI mode |
+| `←` / `Backspace` | Up one folder (browse mode) |
+| Drag a row | Drop the file anywhere |
+| `Esc` | Close |
 
-**Notes, covers, descriptions.** A description plus timestamped notes per
-project, a cover image and an accent color, stored right in the project
-folder.
+## AI setup
 
-**Stats.** Projects per status and tag, total size, biggest projects. The
-optional duplicate finder spots identical files across the whole library.
+Settings → AI assistant. Two modes:
 
-**Trash.** Deleted projects go to a restorable Krate trash first. Restore
-them with one click or delete them forever.
+- **Built-in agent (recommended).** Paste an API key from [Anthropic](https://console.anthropic.com) (Claude) or [Groq](https://console.groq.com) (free tier available). The **Test button** checks the connection immediately and shows the exact provider error if something is wrong. Note: a claude.ai subscription is not an API key; the API needs its own account with credits.
+- **Web mode.** Embeds Claude, ChatGPT, Gemini or Copilot inside the panel. Sign in once with your account; "Ask AI" on a project copies its full context to paste into the chat.
 
-**Watch folder.** Optionally watch a folder (Downloads by default). New files
-trigger a notification and one click sorts them into the right project.
+Keys are stored locally in `config.json` and never leave your machine except to the provider you chose.
 
-**ZIP export.** Export any project as a ZIP, metadata included.
+## How data is stored
 
-**Themes.** Light (white with black accents, the default), Dark (black with
-white accents) and the classic Krate Purple. A custom accent color can
-override any theme. English and German interface.
+```
+MyProject/
+├─ krate.json        title, tags, notes, links, nicknames, status
+├─ .krate/           cover image
+└─ your files, exactly as you put them
+```
 
-**Portable mode and krate:// links.** Put a `krate-portable.txt` next to
-`Krate.exe` and all data lives in a `data` folder beside it. `krate://` links
-(for example `krate://neon-skies-amv`) open a project directly from Discord,
-Notion or anywhere else.
-
-**Drag and drop, both ways.** Drop files onto Krate to copy them into a
-project; drag results out of the overlay straight into Premiere, Discord,
-your browser, anywhere.
-
-<div align="center">
-<img src="docs/main-graph.png" width="800" alt="Graph view">
-<img src="docs/main-ai.png" width="800" alt="AI panel">
-</div>
+Global settings live in `%APPDATA%/krate/config.json`, template starter files
+in `%APPDATA%/krate/template-files/`, the trash in `%APPDATA%/krate/trash/`.
+In portable mode all of it moves to a `data` folder next to the exe.
 
 ## Install
 
-Grab the installer from **[Releases](https://github.com/ImKirit/Krate/releases/latest)** and run it.
-
-Or run from source:
+Grab the installer from **[Releases](https://github.com/ImKirit/Krate/releases/latest)**, or build from source:
 
 ```bash
 git clone https://github.com/ImKirit/Krate.git
@@ -121,52 +125,18 @@ npm install
 npm start
 ```
 
-## Quick search keys
-
-| Key | Action |
-| --- | --- |
-| `Ctrl+Alt+K` | Open / close the overlay (configurable in Settings) |
-| `↑` `↓` | Select result |
-| `Enter` | Open file / enter folder / send AI question |
-| `Ctrl+Enter` | Show in Explorer |
-| `Shift+Enter` | Open in the Krate main window |
-| `Tab` | Toggle search / browse mode |
-| `Ctrl+Space` | Toggle AI mode |
-| `←` / `Backspace` | Up one folder (browse mode) |
-| `Esc` | Close |
-| Drag a row | Drop the file anywhere |
-
-## How data is stored
-
-```
-MyProject/
-├─ krate.json        title, tags, notes, links, related, nicknames, status
-├─ .krate/           cover image
-└─ your files, exactly as you put them
-```
-
-Global settings (projects folder, tags, templates, hotkey, theme, language,
-AI configuration) live in `%APPDATA%/krate/config.json`. Files attached to
-templates live in `%APPDATA%/krate/template-files/`, the trash in
-`%APPDATA%/krate/trash/`. In portable mode all of this moves to the `data`
-folder next to the exe. API keys are stored locally and only sent to the
-provider you configured. The web mode login uses its own persistent browser
-session on your machine.
-
 ## Development
 
 ```bash
 npm start          # run the app
-npm run smoke      # headless startup check
-npm run icon       # regenerate build/icon.{png,ico}
+npm run smoke      # headless startup check (uses a throwaway profile)
 npm run dist       # build the NSIS installer into dist/
 node scripts/screenshot.js   # re-render the README screenshots (via npx electron)
 ```
 
-Plain Electron with one runtime dependency (`@anthropic-ai/sdk` for the AI
+Plain Electron with a single runtime dependency (the Anthropic SDK for the AI
 agent). `src/main` is the main process (store, search indexer, AI agent,
-windows, IPC), `src/renderer` the main window UI, `src/overlay` the quick
-search overlay.
+windows, IPC), `src/renderer` the main window, `src/overlay` the quick search.
 
 ## License
 

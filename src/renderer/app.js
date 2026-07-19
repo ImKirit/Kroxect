@@ -242,7 +242,7 @@ function renderGrid() {
     $('projectGrid').innerHTML = `
       <div class="empty-state">
         <div class="big" style="color:#a855f7">${window.KI.get('box', 'big-ico')}</div>
-        <div>${state.projects.length ? 'Nothing matches your filter.' : 'No projects yet — create your first one!'}</div>
+        <div>${state.projects.length ? 'Nothing matches your filter.' : 'No projects yet. Create your first one!'}</div>
       </div>`;
     return;
   }
@@ -488,7 +488,7 @@ function renderLinks() {
       <span class="l-title">${esc(l.title || l.url)}</span>
       <span class="l-url">${esc(l.url)}</span>
       <button class="l-del" title="Remove link">${window.KI.get('x')}</button>
-    </div>`).join('') : '<div class="muted small">No links yet — connect your Google Drive folders, Dropbox, repos…</div>';
+    </div>`).join('') : '<div class="muted small">No links yet. Connect your Google Drive folders, Dropbox shares or repos.</div>';
   $('linkList').querySelectorAll('.link-row').forEach((row) => {
     const link = links.find((l) => l.id === row.dataset.id);
     row.onclick = (e) => {
@@ -528,7 +528,7 @@ function renderRelated() {
       <span class="l-title">${esc(p.meta.title)}</span>
       <span class="l-url">${esc(p.meta.tags.join(', '))}</span>
       <button class="l-del" title="Remove link">${window.KI.get('x')}</button>
-    </div>`).join('') : `<div class="muted small">${window.T('Related projects')} — none yet.</div>`;
+    </div>`).join('') : `<div class="muted small">${window.T('Related projects')}: none yet.</div>`;
   $('relatedList').querySelectorAll('.link-row').forEach((row) => {
     const target = byId.get(row.dataset.rid);
     row.onclick = (e) => {
@@ -608,7 +608,7 @@ function renderTree() {
 
   $('fileTree').innerHTML = tree.length
     ? rows(tree)
-    : '<div class="drop-hint">Empty project — add files with the button above or drop them here.</div>';
+    : '<div class="drop-hint">Empty project. Add files with the button above or drop them here.</div>';
 
   $('fileTree').querySelectorAll('.frow').forEach((row) => {
     const rel = row.dataset.rel;
@@ -786,7 +786,7 @@ $('btnNew').onclick = () => {
     </div>
     <label>Folder template</label>
     <select id="npTpl">
-      <option value="">— none —</option>
+      <option value="">none</option>
       ${state.config.templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${t.dirs.length} folders${(t.files || []).length ? `, ${t.files.length} files` : ''})</option>`).join('')}
     </select>
     <label>Location</label>
@@ -945,7 +945,7 @@ function openSettings() {
       <button class="btn mgr-del" id="tplDelete" title="Delete template"><span class="ico" data-icon="trash"></span></button>
     </div>
     <div id="tplTree" class="tpl-tree"></div>
-    <div class="hint">Build the folder structure visually — hover a folder for actions. Attached files are copied into every new project created from this template.</div>
+    <div class="hint">Build the folder structure visually, hover a folder for actions. Attached files are copied into every new project created from this template.</div>
 
     <div class="modal-actions">
       <button class="btn btn-primary" id="setDone">Save & Close</button>
@@ -1049,7 +1049,7 @@ function openSettings() {
   function renderTplTree() {
     const t = templates[tplIdx];
     if (!t) {
-      tplTree.innerHTML = '<div class="muted small" style="padding:10px">No templates — create one with “New”.</div>';
+      tplTree.innerHTML = '<div class="muted small" style="padding:10px">No templates yet. Create one with “New”.</div>';
       return;
     }
     const rows = [];
@@ -1529,7 +1529,7 @@ async function openStats() {
       const groups = await window.krate.dupesFind();
       list.innerHTML = groups.length ? groups.map((g) => `
         <div class="dup-group">
-          <div class="dg-head">${g.files.length} × ${fmtSize(g.size)} — ${esc(g.files[0].rel.split('/').pop())}</div>
+          <div class="dg-head">${g.files.length} × ${fmtSize(g.size)}: ${esc(g.files[0].rel.split('/').pop())}</div>
           ${g.files.map((f) => `<div class="dup-file" data-abs="${esc(f.abs)}">${window.KI.get('file')} ${esc(f.project)} / ${esc(f.rel)}</div>`).join('')}
         </div>`).join('') : `<div class="muted small">${window.T('No duplicates found.')}</div>`;
       list.querySelectorAll('.dup-file').forEach((el) => {
@@ -1630,10 +1630,10 @@ function openWizard() {
   const steps = [
     // 0 — welcome
     () => `
-      <div class="wiz-hero"><span class="wiz-mark">K</span></div>
+      <div class="wiz-hero"><img class="wiz-mark" src="logo.png" alt=""></div>
       <h2 style="text-align:center">Hey ${esc(window.krate.username || 'there')}, welcome to Krate</h2>
       <p class="muted" style="line-height:1.6;text-align:center">
-        Every project — edits, apps, designs, anything — in one organized place:
+        Every project, from edits to apps to designs, in one organized place:
         tagged, searchable and one hotkey away.<br>Let's set things up. Takes about a minute.
       </p>
       ${foot('Get started')}`,
@@ -1717,7 +1717,7 @@ function openWizard() {
       <h2>You're set. The 20-second tour:</h2>
       <div class="wiz-list">
         <div>${window.KI.get('search')} <span><b>Ctrl+Alt+K</b> anywhere in Windows: search every project, file and nickname. Drag results into any app.</span></div>
-        <div>${window.KI.get('plus')} <span><b>New Project</b> creates a folder from a template — structure and starter files included.</span></div>
+        <div>${window.KI.get('plus')} <span><b>New Project</b> creates a folder from a template, with structure and starter files included.</span></div>
         <div>${window.KI.get('pencil')} <span>Give files <b>nicknames</b> ("main clip") in the Files tab so you find them without knowing the real name.</span></div>
         <div>${window.KI.get('graph')} <span><b>Graph View</b> shows your whole library as a map. Click a node to jump there.</span></div>
         <div>${window.KI.get('bot')} <span>The <b>AI panel</b> answers questions like "where is the render of my last edit?"</span></div>

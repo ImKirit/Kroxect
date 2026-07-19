@@ -112,6 +112,8 @@ input, textarea, select, button { font: inherit; color: inherit; }
   font-weight: 800; font-size: 17px;
 }
 .logo-text { font-weight: 800; letter-spacing: 3px; font-size: 15px; }
+img.logo-mark { object-fit: cover; border: 2px solid var(--border); }
+img.wiz-mark { object-fit: cover; border: 2px solid var(--border); }
 
 .nav-item {
   display: flex; align-items: center; gap: 9px;
@@ -425,27 +427,78 @@ input[type="color"] {
 .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .error-text { color: var(--danger); font-size: 12px; margin-top: 6px; font-weight: 600; }
 
-/* ---------------- boot screen ---------------- */
+/* ---------------- boot screen ----------------
+   Folders get packed into the K: two folder chips and a file chip slide
+   behind the logo, the wordmark settles, a short bar fills. Matte and
+   theme-aware, about 1.7 seconds, click to skip. */
 #bootScreen {
   position: fixed; inset: 0; z-index: 200;
-  background: #0a0c0a;
-  padding: 40px 48px;
+  background: var(--bg);
+  display: grid; place-items: center;
   cursor: pointer;
   transition: opacity 0.35s ease;
 }
 #bootScreen.boot-out { opacity: 0; pointer-events: none; }
-#bootText {
-  font-family: Consolas, "Cascadia Mono", monospace;
-  font-size: 14px; line-height: 1.75;
-  color: #3ddc84;
-  text-shadow: 0 0 6px rgba(61, 220, 132, 0.25);
-  white-space: pre-wrap;
+.boot-stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.boot-logo {
+  width: 96px; height: 96px; border-radius: 22px;
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow-2);
+  position: relative; z-index: 2;
+  animation: bootLogo 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-#bootText .boot-hi { color: #eaffea; font-weight: 700; }
-#bootText div:last-child::after {
-  content: "▌"; animation: bootBlink 0.8s steps(1) infinite;
+@keyframes bootLogo {
+  0% { opacity: 0; transform: scale(0.55) rotate(-8deg); }
+  100% { opacity: 1; transform: none; }
 }
-@keyframes bootBlink { 50% { opacity: 0; } }
+.bchip {
+  position: absolute; top: 36px; z-index: 1;
+  width: 34px; height: 24px; border-radius: 5px;
+  background: #f5b301;
+}
+.bchip::before {
+  content: ""; position: absolute; top: -5px; left: 3px;
+  width: 14px; height: 7px; border-radius: 3px 3px 0 0;
+  background: inherit;
+}
+.c1 { left: calc(50% - 150px); animation: bootChipR 0.7s ease 0.35s both; }
+.c2 { left: calc(50% + 116px); background: #ffd34d; animation: bootChipL 0.7s ease 0.5s both; }
+.c3 {
+  left: calc(50% - 130px); top: 66px;
+  background: #ffffff; border: 2px solid #d9d9d0;
+  animation: bootChipR 0.7s ease 0.62s both;
+}
+.c3::before { display: none; }
+@keyframes bootChipR {
+  0% { opacity: 0; transform: translateX(-30px); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(118px) scale(0.55); }
+}
+@keyframes bootChipL {
+  0% { opacity: 0; transform: translateX(30px); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-96px) scale(0.55); }
+}
+.boot-word {
+  font-weight: 800; font-size: 21px; letter-spacing: 9px; padding-left: 9px;
+  animation: bootWord 0.55s ease 0.55s both;
+}
+@keyframes bootWord {
+  from { opacity: 0; letter-spacing: 3px; transform: translateY(8px); }
+  to { opacity: 1; }
+}
+.boot-bar {
+  width: 150px; height: 5px; border-radius: 4px;
+  background: var(--border); overflow: hidden;
+  animation: bootFade 0.3s ease 0.6s both;
+}
+.boot-bar i {
+  display: block; height: 100%; background: var(--accent);
+  transform-origin: left; transform: scaleX(0);
+  animation: bootBarFill 0.85s ease 0.7s forwards;
+}
+@keyframes bootFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bootBarFill { to { transform: scaleX(1); } }
 
 /* ---------------- first-run wizard ---------------- */
 .wiz-hero { display: grid; place-items: center; margin: 6px 0 14px; }
