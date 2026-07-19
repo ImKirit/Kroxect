@@ -8,10 +8,12 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[c]));
 
-let mode = 'search';        // 'search' | 'browse'
+let mode = 'search';        // 'search' | 'browse' | 'ai'
 let results = [];           // rows currently shown
 let sel = 0;
 let dragging = false;
+let aiConvo = [];           // AI mode conversation for this overlay session
+let aiBusy = false;
 
 // browse state: null = project list, else { projectPath, projectTitle, rel }
 let browseLoc = null;
@@ -27,11 +29,27 @@ function iconFor(r) {
 
 function render() {
   $('btnMode').classList.toggle('on', mode === 'browse');
+  $('btnAiMode').classList.toggle('on', mode === 'ai');
   $('crumbs').hidden = mode !== 'browse';
+  $('q').placeholder = mode === 'ai' ? 'Ask the AI about your projects…' : 'Search projects, files, nicknames…';
+  // stay small until there is something to show
+  document.body.classList.toggle('compact',
+    mode === 'search' && !results.length && !$('q').value.trim());
   if (mode === 'browse') {
     $('crumbs').innerHTML = browseLoc
       ? `<b>${esc(browseLoc.projectTitle)}</b>${browseLoc.rel ? ' / ' + esc(browseLoc.rel.split('/').join(' / ')) : ''}`
       : '<b>Projects</b>';
+  }
+
+  if (mode === 'ai') {
+    $('results').innerHTML = aiConvo.length ? aiConvo.map((m) => {
+      if (m.role === 'activity') return `<div class="ai-act">→ ${esc(m.content)}</div>`;
+      if (m.role === 'error') return `<div class="ai-block ai-err">${esc(m.content)}</div>`;
+      if (m.role === 'user') return `<div class="ai-block ai-q">${esc(m.content)}</div>`;
+      return `<div class="ai-block ai-a">${esc(m.content)}</div>`;
+    }).join('') : '<div class="rempty">Ask anything. The agent can list, search and read your projects.</div>';
+    $('results').scrollTop = $('results').scrollHeight;
+    return;
   }
 
   if (!results.length) {
@@ -180,18 +198,51 @@ function activate({ ctrl = false, shift = false }) {
 function setMode(m) {
   mode = m;
   if (mode === 'browse') { browseLoc = null; $('q').value = ''; loadBrowse(); }
+  else if (mode === 'ai') { results = []; sel = 0; render(); }
   else { $('q').value = ''; results = []; sel = 0; render(); }
   $('q').focus();
 }
 
+/* ------------------------------------------------------------ ai mode --- */
+async function sendAiOverlay() {
+  if (aiBusy) return;
+  const q = $('q').value.trim();
+  if (!q) return;
+  $('q').value = '';
+  aiConvo.push({ role: 'user', content: q });
+  aiConvo.push({ role: 'activity', content: 'thinking…' });
+  aiBusy = true;
+  render();
+  const history = aiConvo.filter((m) => m.role === 'user' || m.role === 'assistant');
+  const r = await window.krate.aiAsk({ history });
+  aiBusy = false;
+  for (let i = aiConvo.length - 1; i >= 0 && aiConvo[i].role === 'activity'; i--) aiConvo.splice(i, 1);
+  if (r.error) aiConvo.push({ role: 'error', content: r.error });
+  else aiConvo.push({ role: 'assistant', content: r.text });
+  render();
+}
+
+window.krate.on('ai-activity', (text) => {
+  if (!aiBusy || mode !== 'ai') return;
+  aiConvo.push({ role: 'activity', content: text });
+  render();
+});
+
 /* -------------------------------------------------------------- input --- */
 $('q').addEventListener('input', () => {
   if (mode === 'search') debouncedSearch();
-  else filterBrowse();
+  else if (mode === 'browse') filterBrowse();
+  else render(); // ai: keep compact state in sync
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { window.krate.hideOverlay(); return; }
+  if (e.key === ' ' && e.ctrlKey) { e.preventDefault(); setMode(mode === 'ai' ? 'search' : 'ai'); return; }
+  if (mode === 'ai') {
+    if (e.key === 'Enter') { e.preventDefault(); sendAiOverlay(); }
+    if (e.key === 'Tab') { e.preventDefault(); setMode('search'); }
+    return;
+  }
   if (e.key === 'Tab') { e.preventDefault(); setMode(mode === 'search' ? 'browse' : 'search'); return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, results.length - 1); markSel(); return; }
   if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); markSel(); return; }
@@ -214,13 +265,16 @@ $('btnMode').onclick = () => setMode(mode === 'search' ? 'browse' : 'search');
 window.krate.on('overlay-shown', () => {
   mode = 'search';
   browseLoc = null;
+  aiConvo = [];
+  aiBusy = false;
   $('q').value = '';
   results = [];
   sel = 0;
   render();
   $('q').focus();
-  // re-trigger the entrance animation (only when animations are enabled)
+  // apply theme + animation flags, re-trigger the entrance animation
   window.krate.getState().then((s) => {
+    document.body.dataset.theme = s.config.theme || 'light';
     document.body.classList.toggle('anim', s.config.animations !== false);
     const p = $('panel');
     p.classList.remove('pop');
@@ -230,7 +284,10 @@ window.krate.on('overlay-shown', () => {
 });
 
 $('qIco').innerHTML = window.KI.get('search');
-$('btnMode').innerHTML = window.KI.get('layout');
+$('btnMode').innerHTML = window.KI.get('folder');
+$('btnAiMode').innerHTML = window.KI.get('sparkle');
+$('btnAiMode').onclick = () => setMode(mode === 'ai' ? 'search' : 'ai');
+document.body.classList.add('compact');
 
 window.krate.on('overlay-blur', () => {
   if (!dragging) window.krate.hideOverlay();

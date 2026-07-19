@@ -5,9 +5,8 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self' 'unsafe-inline'">
   <title>Krate</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="ui2.css">
 </head>
-<body>
+<body data-theme="light">
   <div id="app">
     <aside id="sidebar">
       <div class="logo">
@@ -16,24 +15,28 @@
       </div>
 
       <nav id="statusNav">
-        <div class="nav-item active" data-status=""><span class="ico" data-icon="box"></span><span>All Projects</span><span class="count" id="countAll"></span></div>
-        <div class="nav-item" data-fav="1"><span class="ico fav-ico" data-icon="star"></span><span>Favorites</span><span class="count" id="countFav"></span></div>
-        <div class="nav-item" data-status="active"><span class="dot dot-active"></span><span>Active</span></div>
-        <div class="nav-item" data-status="idea"><span class="dot dot-idea"></span><span>Ideas</span></div>
-        <div class="nav-item" data-status="paused"><span class="dot dot-paused"></span><span>Paused</span></div>
-        <div class="nav-item" data-status="done"><span class="dot dot-done"></span><span>Done</span></div>
-        <div class="nav-item" data-status="archived"><span class="dot dot-archived"></span><span>Archived</span></div>
+        <div class="nav-item active" data-status=""><span class="ico" data-icon="box"></span><span data-i18n="All Projects">All Projects</span><span class="count" id="countAll"></span></div>
+        <div class="nav-item" data-fav="1"><span class="ico fav-ico" data-icon="star"></span><span data-i18n="Favorites">Favorites</span><span class="count" id="countFav"></span></div>
+        <div class="nav-item" data-status="active"><span class="dot dot-active"></span><span data-i18n="Active">Active</span></div>
+        <div class="nav-item" data-status="idea"><span class="dot dot-idea"></span><span data-i18n="Ideas">Ideas</span></div>
+        <div class="nav-item" data-status="paused"><span class="dot dot-paused"></span><span data-i18n="Paused">Paused</span></div>
+        <div class="nav-item" data-status="done"><span class="dot dot-done"></span><span data-i18n="Done">Done</span></div>
+        <div class="nav-item" data-status="archived"><span class="dot dot-archived"></span><span data-i18n="Archived">Archived</span></div>
       </nav>
 
-      <div class="side-head">
-        <span>TAGS</span>
+      <div class="side-head clickable collapsed" id="tagHead">
+        <span data-i18n="TAGS">TAGS</span>
+        <span class="chev ico" data-icon="chevron" style="transform:rotate(90deg)"></span>
       </div>
-      <div id="tagList"></div>
+      <div id="tagList" class="collapsed"></div>
+      <div id="tagSpacer"></div>
 
       <div class="side-bottom">
-        <button class="side-btn" id="btnGraph"><span class="ico" data-icon="graph"></span> Graph View</button>
-        <button class="side-btn" id="btnAi"><span class="ico" data-icon="bot"></span> AI Assistant</button>
-        <button class="side-btn" id="btnSettings"><span class="ico" data-icon="gear"></span> Settings</button>
+        <button class="side-btn" id="btnGraph"><span class="ico" data-icon="graph"></span> <span data-i18n="Graph View">Graph View</span></button>
+        <button class="side-btn" id="btnAi"><span class="ico" data-icon="sparkle"></span> <span data-i18n="AI Assistant">AI Assistant</span></button>
+        <button class="side-btn" id="btnStats"><span class="ico" data-icon="chart"></span> <span data-i18n="Stats">Stats</span></button>
+        <button class="side-btn" id="btnTrash"><span class="ico" data-icon="trash"></span> <span data-i18n="Trash">Trash</span></button>
+        <button class="side-btn" id="btnSettings"><span class="ico" data-icon="gear"></span> <span data-i18n="Settings">Settings</span></button>
       </div>
     </aside>
 
@@ -43,14 +46,14 @@
         <header class="topbar">
           <div class="search-wrap">
             <span class="ico" data-icon="search"></span>
-            <input id="searchInput" type="text" placeholder="Search projects…  (Ctrl+F)" spellcheck="false">
+            <input id="searchInput" type="text" data-i18n-ph="Search projects…  (Ctrl+F)" placeholder="Search projects…  (Ctrl+F)" spellcheck="false">
           </div>
           <select id="sortSelect">
-            <option value="modified">Last modified</option>
-            <option value="created">Newest</option>
-            <option value="name">Name A–Z</option>
+            <option value="modified" data-i18n="Last modified">Last modified</option>
+            <option value="created" data-i18n="Newest">Newest</option>
+            <option value="name" data-i18n="Name A–Z">Name A–Z</option>
           </select>
-          <button class="btn btn-primary" id="btnNew"><span class="ico" data-icon="plus"></span> New Project</button>
+          <button class="btn btn-primary" id="btnNew"><span class="ico" data-icon="plus"></span> <span data-i18n="New Project">New Project</span></button>
         </header>
         <div id="projectGrid"></div>
       </div>
@@ -77,33 +80,36 @@
             </div>
             <div class="muted small" id="detPath"></div>
           </div>
-          <button class="btn btn-ghost" id="btnAiProject" title="Copy project context & open AI assistant"><span class="ico" data-icon="bot"></span> Ask AI</button>
-          <button class="btn btn-ghost" id="btnRevealProject" title="Open project folder in Explorer"><span class="ico" data-icon="explorer"></span> Explorer</button>
+          <button class="btn btn-ghost" id="btnAiProject" title="Ask the AI about this project"><span class="ico" data-icon="sparkle"></span> <span data-i18n="Ask AI">Ask AI</span></button>
+          <button class="btn btn-ghost" id="btnRevealProject" title="Open project folder in Explorer"><span class="ico" data-icon="explorer"></span> <span data-i18n="Explorer">Explorer</span></button>
         </header>
 
         <div class="tabs" id="detTabs">
-          <button class="tab active" data-tab="overview">Overview</button>
-          <button class="tab" data-tab="files">Files</button>
-          <button class="tab" data-tab="psettings">Project Settings</button>
+          <button class="tab active" data-tab="overview" data-i18n="Overview">Overview</button>
+          <button class="tab" data-tab="files" data-i18n="Files">Files</button>
+          <button class="tab" data-tab="psettings" data-i18n="Project Settings">Project Settings</button>
         </div>
 
         <section id="tabOverview" class="tabpane">
           <div class="pane-col">
-            <h3>Description</h3>
-            <textarea id="detDesc" placeholder="What is this project about?" spellcheck="false"></textarea>
-            <h3 style="margin-top:14px">Links <span class="muted small" style="letter-spacing:0;font-weight:400">— Google Drive, Dropbox, GitHub, anything</span></h3>
+            <h3 data-i18n="Description">Description</h3>
+            <textarea id="detDesc" data-i18n-ph="What is this project about?" placeholder="What is this project about?" spellcheck="false"></textarea>
+            <h3 style="margin-top:14px" data-i18n="Links">Links</h3>
             <div id="linkList"></div>
             <div class="link-add">
-              <input type="text" id="linkTitle" placeholder="Title (e.g. Footage on Drive)" spellcheck="false">
+              <input type="text" id="linkTitle" placeholder="Title" spellcheck="false">
               <input type="text" id="linkUrl" placeholder="https://…" spellcheck="false">
               <button class="btn" id="btnAddLink"><span class="ico" data-icon="plus"></span></button>
             </div>
+            <h3 style="margin-top:14px" data-i18n="Related projects">Related projects</h3>
+            <div id="relatedList"></div>
+            <div class="chip-row" style="margin-top:6px"><span class="chip chip-add" id="btnAddRelated">＋</span></div>
           </div>
           <div class="pane-col">
-            <h3>Notes &amp; Comments</h3>
+            <h3 data-i18n="Notes & Comments">Notes &amp; Comments</h3>
             <div class="note-add">
-              <textarea id="noteInput" rows="2" placeholder="Add a note…  (Ctrl+Enter)" spellcheck="false"></textarea>
-              <button class="btn btn-primary" id="btnAddNote">Add</button>
+              <textarea id="noteInput" rows="2" data-i18n-ph="Add a note…  (Ctrl+Enter)" placeholder="Add a note…  (Ctrl+Enter)" spellcheck="false"></textarea>
+              <button class="btn btn-primary" id="btnAddNote" data-i18n="Add">Add</button>
             </div>
             <div id="noteList"></div>
           </div>
@@ -111,9 +117,9 @@
 
         <section id="tabFiles" class="tabpane" hidden>
           <div class="files-toolbar">
-            <button class="btn" id="btnAddFiles"><span class="ico" data-icon="upload"></span> Add Files</button>
-            <button class="btn" id="btnNewFolder"><span class="ico" data-icon="folder"></span> New Folder</button>
-            <button class="btn" id="btnSaveTpl"><span class="ico" data-icon="layout"></span> Save structure as template</button>
+            <button class="btn" id="btnAddFiles"><span class="ico" data-icon="upload"></span> <span data-i18n="Add Files">Add Files</span></button>
+            <button class="btn" id="btnNewFolder"><span class="ico" data-icon="folder"></span> <span data-i18n="New Folder">New Folder</span></button>
+            <button class="btn" id="btnSaveTpl"><span class="ico" data-icon="layout"></span> <span data-i18n="Save structure as template">Save structure as template</span></button>
             <span class="muted small" id="dropTarget"></span>
           </div>
           <div id="fileTree" class="file-tree"></div>
@@ -122,17 +128,21 @@
 
         <section id="tabPsettings" class="tabpane" hidden>
           <div class="settings-block">
-            <h3>Location</h3>
+            <h3 data-i18n="Location">Location</h3>
             <div class="muted" id="psLocation"></div>
           </div>
           <div class="settings-block">
-            <h3>Accent color</h3>
+            <h3 data-i18n="Accent color">Accent color</h3>
             <input type="color" id="psColor">
           </div>
+          <div class="settings-block">
+            <h3 data-i18n="Export as ZIP">Export as ZIP</h3>
+            <button class="btn" id="btnExportZip"><span class="ico" data-icon="zip"></span> <span data-i18n="Export as ZIP">Export as ZIP</span></button>
+          </div>
           <div class="settings-block danger-zone">
-            <h3>Danger zone</h3>
-            <button class="btn" id="btnUnregister" hidden>Remove from library (keep files)</button>
-            <button class="btn btn-danger" id="btnDeleteProject"><span class="ico" data-icon="trash"></span> Delete project (Recycle Bin)</button>
+            <h3 data-i18n="Danger zone">Danger zone</h3>
+            <button class="btn" id="btnUnregister" hidden data-i18n="Remove from library (keep files)">Remove from library (keep files)</button>
+            <button class="btn btn-danger" id="btnDeleteProject"><span class="ico" data-icon="trash"></span> <span data-i18n="Delete project (Trash)">Delete project (Trash)</span></button>
           </div>
         </section>
       </div>
@@ -146,13 +156,36 @@
         </div>
         <canvas id="graphCanvas"></canvas>
       </div>
+
+      <!-- ============================ STATS ============================= -->
+      <div id="statsView" hidden></div>
+
+      <!-- ============================ TRASH ============================= -->
+      <div id="trashView" hidden></div>
     </main>
+
+    <!-- ========================== AI PANEL ============================= -->
+    <aside id="aiPanel" hidden>
+      <div class="ai-head">
+        <span class="ico" data-icon="sparkle"></span>
+        <span data-i18n="AI Assistant">AI Assistant</span>
+        <span class="ai-sub" id="aiSub"></span>
+        <button class="btn btn-ghost" id="btnAiClose" title="Close"><span class="ico" data-icon="x"></span></button>
+      </div>
+      <div id="aiMessages"></div>
+      <div id="aiWeb" hidden></div>
+      <div class="ai-input" id="aiInputRow">
+        <textarea id="aiInput" rows="2" data-i18n-ph="Ask about your projects…" placeholder="Ask about your projects…" spellcheck="false"></textarea>
+        <button class="btn btn-primary" id="btnAiSend" style="margin-left:0"><span class="ico" data-icon="send"></span></button>
+      </div>
+    </aside>
   </div>
 
   <div id="modalBackdrop" hidden><div id="modalBox"></div></div>
   <div id="toast"></div>
 
   <script src="icons.js"></script>
+  <script src="i18n.js"></script>
   <script src="demo.js"></script>
   <script src="graph.js"></script>
   <script src="app.js"></script>

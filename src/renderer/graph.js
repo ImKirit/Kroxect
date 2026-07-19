@@ -99,9 +99,26 @@
   }
 
   // ------------------------------------------------------------- render --
+  // matte, theme-aware: colors come from the active CSS theme, no glow
+  function themeColors() {
+    const cs = getComputedStyle(document.body);
+    const text = cs.getPropertyValue('--text').trim() || '#17171c';
+    const muted = cs.getPropertyValue('--muted').trim() || '#70706a';
+    const accent = cs.getPropertyValue('--accent').trim() || '#15151a';
+    const dark = document.body.dataset.theme !== 'light';
+    return {
+      text, muted, accent,
+      edge: dark ? 'rgba(255,255,255,0.13)' : 'rgba(20,20,20,0.14)',
+      edgeHover: accent,
+      labelDim: dark ? 'rgba(240,240,240,0.6)' : 'rgba(20,20,20,0.55)',
+      ring: dark ? '#e8b40f' : '#b8860b',
+    };
+  }
+
   function draw() {
     const c = canvas();
     if (!c || !ctx) return;
+    const th = themeColors();
     const rect = c.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
 
@@ -111,34 +128,38 @@
     ctx.translate(-cam.x, -cam.y);
 
     // edges
-    ctx.lineWidth = 1 / cam.z;
     for (const e of edges) {
       const a = byId.get(e.a), b = byId.get(e.b);
       const hovered = hover && (a === hover || b === hover);
-      ctx.strokeStyle = hovered ? 'rgba(168,85,247,0.55)' : 'rgba(255,255,255,0.10)';
+      ctx.lineWidth = (e.kind === 'related' ? 2 : 1) / cam.z;
+      ctx.strokeStyle = hovered ? th.edgeHover : th.edge;
+      ctx.setLineDash(e.kind === 'related' ? [5 / cam.z, 4 / cam.z] : []);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
     }
+    ctx.setLineDash([]);
 
-    // nodes
+    // nodes: flat fills with a thin outline, hover gets a bold ring
     for (const n of nodes) {
       const r = n.r || 6;
       const isHover = n === hover;
+      ctx.globalAlpha = hover && !isHover && !connected(n, hover) ? 0.22 : 1;
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = n.color || '#a855f7';
-      ctx.shadowColor = n.color || '#a855f7';
-      ctx.shadowBlur = isHover ? 22 : n.type === 'project' ? 12 : 5;
-      ctx.globalAlpha = hover && !isHover && !connected(n, hover) ? 0.25 : 1;
+      ctx.fillStyle = n.color || th.accent;
       ctx.fill();
-      ctx.shadowBlur = 0;
+      if (isHover || n.type === 'project') {
+        ctx.strokeStyle = isHover ? th.text : th.edge;
+        ctx.lineWidth = (isHover ? 2.2 : 1.2) / cam.z;
+        ctx.stroke();
+      }
       if (n.favorite) {
-        ctx.strokeStyle = '#fbbf24';
-        ctx.lineWidth = 1.6 / cam.z;
+        ctx.strokeStyle = th.ring;
+        ctx.lineWidth = 1.8 / cam.z;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, r + 3 / cam.z, 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, r + 3.2 / cam.z, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
@@ -147,12 +168,12 @@
     // labels
     const showAll = cam.z > 0.9 || nodes.length < 60;
     ctx.textAlign = 'center';
-    ctx.font = `${11 / cam.z}px "Segoe UI"`;
+    ctx.font = `600 ${11 / cam.z}px "Segoe UI"`;
     for (const n of nodes) {
       const isHover = n === hover;
       if (!showAll && !isHover && n.type !== 'project' && n.type !== 'tag') continue;
       if (hover && !isHover && !connected(n, hover)) continue;
-      ctx.fillStyle = isHover ? '#eae7f4' : 'rgba(234,231,244,0.62)';
+      ctx.fillStyle = isHover ? th.text : th.labelDim;
       ctx.fillText(n.label, n.x, n.y + (n.r || 6) + 13 / cam.z);
     }
     ctx.restore();

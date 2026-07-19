@@ -1,10 +1,22 @@
 const {
   app, BrowserWindow, ipcMain, dialog, shell, globalShortcut,
-  screen, Tray, Menu, nativeImage, clipboard,
+  screen, Tray, Menu, nativeImage, clipboard, Notification,
 } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
 const store = require('./store');
 const indexer = require('./indexer');
+const ai = require('./ai');
+
+// Portable mode: put a file named "krate-portable.txt" next to Krate.exe and
+// all data (config, trash, template files) lives in a "data" folder beside it.
+try {
+  const exeDir = path.dirname(app.getPath('exe'));
+  if (fs.existsSync(path.join(exeDir, 'krate-portable.txt'))) {
+    app.setPath('userData', path.join(exeDir, 'data'));
+  }
+} catch { }
 
 let mainWin = null;
 let overlayWin = null;
@@ -14,10 +26,12 @@ const SMOKE = process.argv.includes('--smoke');
 const ICON = path.join(__dirname, '..', '..', 'build', 'icon.png');
 
 // ---------------------------------------------------------------- windows --
+const THEME_BG = { light: '#f4f4f1', dark: '#0d0d0d', purple: '#0b0a10' };
+
 function createMainWindow() {
   mainWin = new BrowserWindow({
     width: 1280, height: 840, minWidth: 960, minHeight: 620,
-    backgroundColor: '#0b0a10',
+    backgroundColor: THEME_BG[store.getConfig().theme] || THEME_BG.light,
     icon: ICON,
     title: 'Krate',
     autoHideMenuBar: true,
@@ -25,6 +39,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true, // AI panel embeds the provider's site in web mode
     },
   });
   mainWin.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
@@ -154,6 +169,68 @@ function openAiWindow(provider) {
   aiWin.loadURL(url, { userAgent: CHROME_UA });
 }
 
+// ----------------------------------------------------------- krate:// urls --
+const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+async function handleKrateUrl(raw) {
+  const m = /^krate:\/\/([^/?#]+)/i.exec(raw || '');
+  if (!m) return;
+  const slug = decodeURIComponent(m[1]).toLowerCase();
+  const projects = await store.listProjects();
+  const hit = projects.find((p) => slugify(p.meta.title) === slug || p.meta.id === slug);
+  showMain();
+  if (hit) mainWin.webContents.send('goto-project', { path: hit.path, rel: '' });
+}
+
+function krateUrlFromArgv(argv) {
+  return argv.find((a) => /^krate:\/\//i.test(a));
+}
+
+// ------------------------------------------------------------ watch folder --
+// Watches one folder (default: Downloads) for new files and offers to sort
+// them into a project. Off by default; toggle in Settings.
+let watcher = null;
+const watchPending = new Map(); // abs -> timer (stability debounce)
+
+function stopWatcher() {
+  if (watcher) { watcher.close(); watcher = null; }
+  for (const t of watchPending.values()) clearTimeout(t);
+  watchPending.clear();
+}
+
+function startWatcher() {
+  stopWatcher();
+  const cfg = store.getConfig();
+  if (!cfg.watchEnabled) return;
+  const dir = cfg.watchPath || app.getPath('downloads');
+  if (!fs.existsSync(dir)) return;
+  const IGNORE = /\.(crdownload|part|partial|tmp|download)$|^~|^\./i;
+  try {
+    watcher = fs.watch(dir, (event, name) => {
+      if (!name || IGNORE.test(name)) return;
+      const abs = path.join(dir, name);
+      if (watchPending.has(abs)) clearTimeout(watchPending.get(abs));
+      // wait until the file stops changing (download finished)
+      watchPending.set(abs, setTimeout(() => {
+        watchPending.delete(abs);
+        fs.stat(abs, (err, st) => {
+          if (err || !st.isFile()) return;
+          const note = new Notification({
+            title: 'Krate — new file',
+            body: `${name}\nClick to sort it into a project.`,
+            icon: ICON,
+          });
+          note.on('click', () => {
+            showMain();
+            mainWin.webContents.send('watch-file', { path: abs, name });
+          });
+          note.show();
+        });
+      }, 2500));
+    });
+  } catch { /* folder not watchable */ }
+}
+
 // -------------------------------------------------------------------- ipc --
 function wireIpc() {
   ipcMain.handle('state:get', async () => ({
@@ -170,6 +247,7 @@ function wireIpc() {
       hotkeyResult = registerHotkey(cfg.hotkey);
       if (!hotkeyResult.ok) { store.saveConfig({ hotkey: before }); registerHotkey(before); }
     }
+    if (partial.watchEnabled !== undefined || partial.watchPath !== undefined) startWatcher();
     return { config: store.getConfig(), hotkey: hotkeyResult };
   });
 
@@ -208,18 +286,50 @@ function wireIpc() {
   ipcMain.handle('project:delete', async (e, { path: p }) => {
     const r = await dialog.showMessageBox(mainWin, {
       type: 'warning',
-      buttons: ['Cancel', 'Move to Recycle Bin'],
+      buttons: ['Cancel', 'Move to Trash'],
       defaultId: 0, cancelId: 0,
       title: 'Delete project',
-      message: 'Move this project folder to the Recycle Bin?',
-      detail: p,
+      message: 'Move this project to the Krate trash?',
+      detail: 'You can restore it from the Trash view. ' + p,
     });
     if (r.response !== 1) return false;
-    await shell.trashItem(p);
-    store.unregisterProject(p);
-    store.bump();
+    await store.trashProject(p);
     return true;
   });
+
+  ipcMain.handle('trash:list', () => store.listTrash());
+  ipcMain.handle('trash:restore', (e, { id }) => store.restoreProject(id));
+  ipcMain.handle('trash:purge', async (e, { id }) => {
+    const r = await dialog.showMessageBox(mainWin, {
+      type: 'warning',
+      buttons: ['Cancel', 'Delete forever'],
+      defaultId: 0, cancelId: 0,
+      title: 'Delete forever',
+      message: 'Move this project to the Windows Recycle Bin?',
+    });
+    if (r.response !== 1) return false;
+    return store.purgeTrashEntry(id, shell);
+  });
+
+  ipcMain.handle('project:exportZip', async (e, { path: p, title }) => {
+    const r = await dialog.showSaveDialog(mainWin, {
+      title: 'Export project as ZIP',
+      defaultPath: `${store.sanitizeName(title || path.basename(p))}.zip`,
+      filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
+    });
+    if (r.canceled || !r.filePath) return null;
+    // Windows 10+ ships bsdtar, which writes zip when the name ends in .zip (-a)
+    await new Promise((resolve, reject) => {
+      const child = spawn('tar', ['-a', '-cf', r.filePath, '-C', p, '.'], { windowsHide: true });
+      child.on('error', reject);
+      child.on('close', (code) => (code === 0 ? resolve() : reject(new Error('tar exited with ' + code))));
+    });
+    shell.showItemInFolder(r.filePath);
+    return r.filePath;
+  });
+
+  ipcMain.handle('stats:get', () => store.libraryStats());
+  ipcMain.handle('dupes:find', () => store.findDuplicates());
 
   ipcMain.handle('project:unregister', (e, { path: p }) => { store.unregisterProject(p); return true; });
 
@@ -260,6 +370,22 @@ function wireIpc() {
     return { copied };
   });
 
+  // Built-in agent: answers questions about the library using read-only tools.
+  ipcMain.handle('ai:ask', async (e, { history }) => {
+    try {
+      const text = await ai.ask({
+        config: store.getConfig(),
+        history,
+        onActivity: (t) => { try { e.sender.send('ai-activity', t); } catch { } },
+      });
+      return { text };
+    } catch (err) {
+      return { error: String(err.message || err) };
+    }
+  });
+
+  ipcMain.handle('ai:context', (e, { path: p }) => store.buildContext(p));
+
   ipcMain.handle('search:query', (e, q) => indexer.search(q));
   ipcMain.handle('overlay:browse', (e, { projectPath, rel }) => store.listDir(projectPath, rel));
   ipcMain.handle('overlay:hide', () => hideOverlay());
@@ -279,7 +405,11 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on('second-instance', showMain);
+  app.on('second-instance', (e, argv) => {
+    const url = krateUrlFromArgv(argv || []);
+    if (url) handleKrateUrl(url);
+    else showMain();
+  });
 
   app.whenReady().then(() => {
     store.init(app.getPath('userData'));
@@ -288,6 +418,12 @@ if (!gotLock) {
     createOverlayWindow();
     createTray();
     registerHotkey(store.getConfig().hotkey);
+    startWatcher();
+
+    // krate://<project-title-slug> links open the project directly
+    app.setAsDefaultProtocolClient('krate');
+    const url = krateUrlFromArgv(process.argv);
+    if (url) mainWin.webContents.once('did-finish-load', () => handleKrateUrl(url));
 
     if (SMOKE) {
       let errors = 0;

@@ -45,7 +45,20 @@ const DEFAULT_CONFIG = {
   tags: DEFAULT_TAGS,
   templates: DEFAULT_TEMPLATES,
   animations: true,
+  // look & feel: 'light' (white, black accents), 'dark' (black, white accents),
+  // 'purple' (the original Krate look). accentColor overrides the theme accent.
+  theme: 'light',
+  accentColor: null,
+  lang: 'en',
+  thumbnails: false,
+  watchEnabled: false,
+  watchPath: null,
+  dupFinder: false,
+  // AI: 'web' embeds the provider's site (account login), 'api' runs the
+  // built-in agent with an API key.
+  aiMode: 'api',
   aiProvider: 'claude',
+  aiApi: { provider: 'anthropic', apiKey: '', model: '', baseUrl: '' },
 };
 
 // ---------------------------------------------------------------- config --
@@ -62,6 +75,7 @@ function init(userDataPath) {
     if (!t.id) t.id = crypto.randomUUID();
     if (!t.files) t.files = [];
   }
+  if (!config.aiApi) config.aiApi = { ...DEFAULT_CONFIG.aiApi };
 }
 
 function getConfig() {
@@ -95,6 +109,7 @@ async function readMeta(projectPath) {
   meta.nicknames = meta.nicknames || {};
   meta.tags = meta.tags || [];
   meta.links = meta.links || [];
+  meta.related = meta.related || [];
   meta.favorite = !!meta.favorite;
   return meta;
 }
@@ -167,6 +182,7 @@ async function createProject({ name, location, tags = [], template = null, descr
     favorite: false,
     notes: [],
     links: [],
+    related: [],
     nicknames: {},
     created: now,
     modified: now,
@@ -312,6 +328,164 @@ async function structureOf(projectPath) {
   return dirs;
 }
 
+// ---------------------------------------------------------------- trash ---
+// Krate-level trash: deleted projects are moved to userData/trash/ and can be
+// restored from the Trash view. "Delete forever" sends them to the OS bin.
+function trashRoot() { return path.join(userData, 'trash'); }
+function trashIndexPath() { return path.join(trashRoot(), 'trash.json'); }
+
+async function readTrashIndex() {
+  try { return JSON.parse(await fsp.readFile(trashIndexPath(), 'utf8')); } catch { return []; }
+}
+async function writeTrashIndex(list) {
+  await fsp.mkdir(trashRoot(), { recursive: true });
+  await fsp.writeFile(trashIndexPath(), JSON.stringify(list, null, 2));
+}
+
+async function trashProject(projectPath) {
+  const meta = await readMeta(projectPath).catch(() => null);
+  await fsp.mkdir(trashRoot(), { recursive: true });
+  const id = crypto.randomUUID().slice(0, 8);
+  const dest = path.join(trashRoot(), `${id}_${path.basename(projectPath)}`);
+  try {
+    await fsp.rename(projectPath, dest); // fast same-drive move
+  } catch {
+    await fsp.cp(projectPath, dest, { recursive: true });
+    await fsp.rm(projectPath, { recursive: true, force: true });
+  }
+  const list = await readTrashIndex();
+  list.unshift({
+    id,
+    title: meta ? meta.title : path.basename(projectPath),
+    origin: projectPath,
+    stored: dest,
+    deletedAt: new Date().toISOString(),
+  });
+  await writeTrashIndex(list);
+  unregisterProject(projectPath);
+  version++;
+  return true;
+}
+
+async function listTrash() {
+  const list = await readTrashIndex();
+  const alive = [];
+  for (const e of list) {
+    if (fs.existsSync(e.stored)) alive.push(e);
+  }
+  if (alive.length !== list.length) await writeTrashIndex(alive);
+  return alive;
+}
+
+async function restoreProject(id) {
+  const list = await readTrashIndex();
+  const e = list.find((x) => x.id === id);
+  if (!e) throw new Error('Not found in trash.');
+  let dest = e.origin;
+  if (fs.existsSync(dest)) dest = `${dest} (restored)`;
+  await fsp.mkdir(path.dirname(dest), { recursive: true });
+  try {
+    await fsp.rename(e.stored, dest);
+  } catch {
+    await fsp.cp(e.stored, dest, { recursive: true });
+    await fsp.rm(e.stored, { recursive: true, force: true });
+  }
+  await writeTrashIndex(list.filter((x) => x.id !== id));
+  // re-register if it lives outside the projects root
+  const root = config.projectsRoot ? path.resolve(config.projectsRoot).toLowerCase() : null;
+  if (path.resolve(path.dirname(dest)).toLowerCase() !== root) {
+    saveConfig({ externalProjects: [...config.externalProjects, dest] });
+  }
+  version++;
+  return dest;
+}
+
+async function purgeTrashEntry(id, shell) {
+  const list = await readTrashIndex();
+  const e = list.find((x) => x.id === id);
+  if (!e) return false;
+  await shell.trashItem(e.stored).catch(() => fsp.rm(e.stored, { recursive: true, force: true }));
+  await writeTrashIndex(list.filter((x) => x.id !== id));
+  return true;
+}
+
+// ----------------------------------------------------- duplicate finder ---
+// Groups identical files across all projects (same size + sha1 of first 256KB).
+async function findDuplicates() {
+  const cryptoMod = require('crypto');
+  const projects = await listProjects();
+  const bySize = new Map();
+  let scanned = 0;
+
+  for (const p of projects) {
+    const tree = await readTree(p.path);
+    const walk = (nodes) => {
+      for (const n of nodes) {
+        if (n.dir) { if (n.children) walk(n.children); continue; }
+        if (n.size < 64 * 1024 || scanned > 20000) continue; // skip tiny files
+        scanned++;
+        const key = n.size;
+        if (!bySize.has(key)) bySize.set(key, []);
+        bySize.get(key).push({ project: p.meta.title, rel: n.rel, abs: path.join(p.path, ...n.rel.split('/')), size: n.size });
+      }
+    };
+    walk(tree);
+  }
+
+  const groups = [];
+  for (const files of bySize.values()) {
+    if (files.length < 2) continue;
+    const byHash = new Map();
+    for (const f of files) {
+      try {
+        const fh = await fsp.open(f.abs, 'r');
+        const buf = Buffer.alloc(Math.min(f.size, 256 * 1024));
+        await fh.read(buf, 0, buf.length, 0);
+        await fh.close();
+        const h = cryptoMod.createHash('sha1').update(buf).digest('hex');
+        if (!byHash.has(h)) byHash.set(h, []);
+        byHash.get(h).push(f);
+      } catch { }
+    }
+    for (const g of byHash.values()) {
+      if (g.length > 1) groups.push({ size: g[0].size, files: g });
+    }
+  }
+  groups.sort((a, b) => (b.size * b.files.length) - (a.size * a.files.length));
+  return groups.slice(0, 60);
+}
+
+// ----------------------------------------------------------------- stats ---
+async function libraryStats() {
+  const projects = await listProjects();
+  const byStatus = {};
+  const byTag = {};
+  const sizes = [];
+  for (const p of projects) {
+    byStatus[p.meta.status] = (byStatus[p.meta.status] || 0) + 1;
+    for (const t of p.meta.tags) byTag[t] = (byTag[t] || 0) + 1;
+    let total = 0, files = 0;
+    const tree = await readTree(p.path);
+    const walk = (nodes) => {
+      for (const n of nodes) {
+        if (n.dir) { if (n.children) walk(n.children); }
+        else { total += n.size || 0; files++; }
+      }
+    };
+    walk(tree);
+    sizes.push({ title: p.meta.title, path: p.path, bytes: total, files, modified: p.meta.modified });
+  }
+  sizes.sort((a, b) => b.bytes - a.bytes);
+  return {
+    count: projects.length,
+    favorites: projects.filter((p) => p.meta.favorite).length,
+    totalBytes: sizes.reduce((s, x) => s + x.bytes, 0),
+    totalFiles: sizes.reduce((s, x) => s + x.files, 0),
+    byStatus, byTag,
+    biggest: sizes.slice(0, 8),
+  };
+}
+
 // ------------------------------------------------------ template files ---
 // Files attached to a template are copied into userData/template-files/<tplId>/
 // so they keep working even if the original source file is moved or deleted.
@@ -379,5 +553,7 @@ module.exports = {
   readMeta, writeMeta, readTree, listDir,
   importPaths, newFolder, setCoverFromFile, structureOf,
   importTemplateFiles, deleteTemplateFiles,
+  trashProject, listTrash, restoreProject, purgeTrashEntry,
+  findDuplicates, libraryStats,
   toRel, sanitizeName,
 };

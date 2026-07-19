@@ -104,13 +104,53 @@ document.addEventListener('pointerdown', (e) => {
   setTimeout(() => ink.remove(), 600);
 });
 
+/* theme, accent color, language and animation flags from config */
+function hexAlpha(hex, a) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+function accentFg(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 150 ? '#141414' : '#ffffff';
+}
+
+function applyLook(cfg) {
+  document.body.dataset.theme = cfg.theme || 'light';
+  document.body.classList.toggle('anim', cfg.animations !== false);
+  window.I18N.set(cfg.lang || 'en');
+  window.I18N.apply();
+  const st = document.body.style;
+  if (cfg.accentColor) {
+    st.setProperty('--accent', cfg.accentColor);
+    st.setProperty('--accent-fg', accentFg(cfg.accentColor));
+    st.setProperty('--accent-soft', hexAlpha(cfg.accentColor, 0.12));
+    st.setProperty('--accent-border', hexAlpha(cfg.accentColor, 0.55));
+    st.setProperty('--border-strong', cfg.accentColor);
+  } else {
+    for (const v of ['--accent', '--accent-fg', '--accent-soft', '--accent-border', '--border-strong']) st.removeProperty(v);
+  }
+}
+
 async function refresh() {
   const s = await window.krate.getState();
   state.config = s.config;
   state.projects = s.projects;
-  document.body.classList.toggle('anim', s.config.animations !== false);
+  applyLook(s.config);
   renderSidebar();
   if (!state.current) renderGrid();
+}
+
+/* all main views live in #content; this hides everything except one */
+function showView(id) {
+  window.KGraph.stop();
+  for (const v of ['homeView', 'detailView', 'graphView', 'statsView', 'trashView']) {
+    $(v).hidden = v !== id;
+  }
 }
 
 /* -------------------------------------------------------------- modal --- */
@@ -209,7 +249,7 @@ function renderGrid() {
   $('projectGrid').innerHTML = list.map((p, i) => {
     const cover = p.meta.cover
       ? `style="--i:${i};background-image:url('${fileUrl(p.path + '\\' + p.meta.cover.split('/').join('\\'))}')"`
-      : `style="--i:${i};background:linear-gradient(135deg,${p.meta.color || '#a855f7'}66,${p.meta.color || '#7c3aed'}22)"`;
+      : `style="--i:${i};background:${p.meta.color || 'var(--accent)'}"`;
     return `
       <div class="card" data-path="${esc(p.path)}" style="--i:${i}">
         <div class="card-star ${p.meta.favorite ? 'on' : ''}" title="Pin to favorites">${window.KI.get(p.meta.favorite ? 'starFill' : 'star')}</div>
@@ -243,12 +283,22 @@ $('sortSelect').onchange = (e) => { state.sort = e.target.value; renderGrid(); }
 
 function goHome() {
   state.current = null;
-  window.KGraph.stop();
-  $('graphView').hidden = true;
-  $('detailView').hidden = true;
-  $('homeView').hidden = false;
+  showView('homeView');
   renderSidebar();
   renderGrid();
+}
+
+/* collapsible TAGS section (closed by default, remembered locally) */
+{
+  const open = localStorage.getItem('krate-tags-open') === '1';
+  $('tagHead').classList.toggle('collapsed', !open);
+  $('tagList').classList.toggle('collapsed', !open);
+  $('tagHead').onclick = () => {
+    const nowOpen = $('tagList').classList.contains('collapsed');
+    $('tagHead').classList.toggle('collapsed', !nowOpen);
+    $('tagList').classList.toggle('collapsed', !nowOpen);
+    localStorage.setItem('krate-tags-open', nowOpen ? '1' : '0');
+  };
 }
 
 /* ------------------------------------------------------------- detail --- */
@@ -259,10 +309,7 @@ async function openProject(path, opts = {}) {
   state.selectedRel = '';
   state.highlightRel = opts.highlightRel || null;
   state.currentTab = opts.tab || 'overview';
-  window.KGraph.stop();
-  $('graphView').hidden = true;
-  $('homeView').hidden = true;
-  $('detailView').hidden = false;
+  showView('detailView');
   renderDetail();
 }
 
@@ -279,7 +326,7 @@ function renderDetail() {
     cover.textContent = '';
   } else {
     cover.style.backgroundImage = '';
-    cover.style.background = `linear-gradient(135deg,${meta.color || '#a855f7'},#7c3aed)`;
+    cover.style.background = meta.color || 'var(--accent)';
     cover.textContent = (meta.title[0] || '?').toUpperCase();
   }
 
@@ -310,7 +357,7 @@ function renderDetail() {
   $('tabFiles').hidden = state.currentTab !== 'files';
   $('tabPsettings').hidden = state.currentTab !== 'psettings';
 
-  if (state.currentTab === 'overview') { renderNotes(); renderLinks(); }
+  if (state.currentTab === 'overview') { renderNotes(); renderLinks(); renderRelated(); }
   if (state.currentTab === 'files') renderTree();
   if (state.currentTab === 'psettings') renderPSettings();
 }
@@ -322,11 +369,15 @@ document.querySelectorAll('#detTabs .tab').forEach((el) => {
 $('btnBack').onclick = () => { goHome(); refresh(); };
 $('btnRevealProject').onclick = () => window.krate.reveal(state.current.path);
 $('btnAiProject').onclick = async () => {
-  const r = await window.krate.aiOpen({
-    provider: state.config.aiProvider,
-    projectPath: state.current.path,
-  });
-  if (r.copied) toast('Project context copied — paste it into the chat (Ctrl+V)');
+  const title = state.current.meta.title;
+  if ((state.config.aiMode || 'api') === 'api') {
+    openAiPanel();
+    $('aiInput').value = `Give me a quick overview of the project "${title}" and what's inside it.`;
+    sendAi();
+  } else {
+    const r = await window.krate.aiOpen({ provider: state.config.aiProvider, projectPath: state.current.path });
+    if (r.copied) toast(window.T('Project context copied. Paste it into the chat (Ctrl+V)'));
+  }
 };
 $('detCover').onclick = async () => {
   const meta = await window.krate.setCover(state.current.path);
@@ -466,6 +517,57 @@ function addLink() {
 $('btnAddLink').onclick = addLink;
 $('linkUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addLink(); });
 
+/* ------------------------------------------------------------ related --- */
+function renderRelated() {
+  const ids = state.current.meta.related || [];
+  const byId = new Map(state.projects.map((p) => [p.meta.id, p]));
+  const rows = ids.map((id) => ({ id, p: byId.get(id) })).filter((x) => x.p);
+  $('relatedList').innerHTML = rows.length ? rows.map(({ id, p }) => `
+    <div class="link-row" data-rid="${esc(id)}">
+      ${window.KI.get('box', 'ri-proj')}
+      <span class="l-title">${esc(p.meta.title)}</span>
+      <span class="l-url">${esc(p.meta.tags.join(', '))}</span>
+      <button class="l-del" title="Remove link">${window.KI.get('x')}</button>
+    </div>`).join('') : `<div class="muted small">${window.T('Related projects')} — none yet.</div>`;
+  $('relatedList').querySelectorAll('.link-row').forEach((row) => {
+    const target = byId.get(row.dataset.rid);
+    row.onclick = (e) => {
+      if (e.target.closest('.l-del')) return;
+      openProject(target.path);
+    };
+    row.querySelector('.l-del').onclick = () => {
+      state.current.meta.related = ids.filter((x) => x !== row.dataset.rid);
+      saveMetaNow();
+      renderRelated();
+    };
+  });
+}
+
+$('btnAddRelated').onclick = () => {
+  const meta = state.current.meta;
+  const others = state.projects.filter((p) => p.path !== state.current.path && !(meta.related || []).includes(p.meta.id));
+  if (!others.length) { toast('No other projects to link.'); return; }
+  const box = openModal(`
+    <h2>${window.T('Related projects')}</h2>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto">
+      ${others.map((p) => `
+        <div class="link-row" data-rid="${esc(p.meta.id)}">
+          ${window.KI.get('box', 'ri-proj')}
+          <span class="l-title">${esc(p.meta.title)}</span>
+          <span class="l-url">${esc(p.meta.tags.join(', '))}</span>
+        </div>`).join('')}
+    </div>
+  `);
+  box.querySelectorAll('.link-row').forEach((row) => {
+    row.onclick = () => {
+      meta.related = [...(meta.related || []), row.dataset.rid];
+      saveMetaNow();
+      closeModal();
+      renderRelated();
+    };
+  });
+};
+
 /* -------------------------------------------------------------- files --- */
 async function reloadTree() {
   const { meta, tree } = await window.krate.loadProject(state.current.path);
@@ -484,10 +586,13 @@ function renderTree() {
       const isOpen = state.expanded.has(n.rel);
       const hl = state.highlightRel === n.rel ? ' highlighted' : '';
       const sel = n.dir && state.selectedRel === n.rel ? ' selected' : '';
-      const icon = n.dir ? window.KI.get(isOpen ? 'folderOpen' : 'folder', 'fold-ico') : window.KI.forFile(n.name);
+      const isImg = !n.dir && /\.(png|jpe?g|gif|webp|bmp)$/i.test(n.name);
+      const icon = (state.config.thumbnails && isImg)
+        ? `<img class="fthumb" loading="lazy" src="${fileUrl(absOf(n.rel))}">`
+        : `<span class="ficon">${n.dir ? window.KI.get(isOpen ? 'folderOpen' : 'folder', 'fold-ico') : window.KI.forFile(n.name)}</span>`;
       return `
         <div class="frow${sel}${hl}" data-rel="${esc(n.rel)}" data-dir="${n.dir ? 1 : 0}" draggable="true">
-          <span class="ficon">${icon}</span>
+          ${icon}
           <span class="fname">${esc(n.name)}</span>
           ${nick ? `<span class="fnick">${esc(nick)}</span>` : ''}
           <span class="fsize">${n.dir ? '' : fmtSize(n.size)}</span>
@@ -646,6 +751,15 @@ $('psColor').onchange = () => {
   saveMetaNow();
 };
 
+$('btnExportZip').onclick = async () => {
+  try {
+    const out = await window.krate.exportZip({ path: state.current.path, title: state.current.meta.title });
+    if (out) toast(window.T('Exported') + ' ✓');
+  } catch {
+    toast('ZIP export failed.');
+  }
+};
+
 $('btnUnregister').onclick = async () => {
   await window.krate.unregisterProject({ path: state.current.path });
   goHome();
@@ -736,20 +850,77 @@ function openSettings() {
     <div class="hint">Electron accelerator format, e.g. <b>Control+Alt+K</b>, <b>Control+Shift+Space</b>, <b>Alt+F1</b></div>
     <div class="error-text" id="hotkeyErr" hidden></div>
 
+    <label>Theme</label>
+    <div class="modal-row">
+      <select id="setTheme" style="flex:1">
+        <option value="light" ${cfg.theme === 'light' ? 'selected' : ''}>Light (white, black accents)</option>
+        <option value="dark" ${cfg.theme === 'dark' ? 'selected' : ''}>Dark (black, white accents)</option>
+        <option value="purple" ${cfg.theme === 'purple' ? 'selected' : ''}>Krate Purple (classic)</option>
+      </select>
+      <input type="color" id="setAccent" value="${esc(cfg.accentColor || '#15151a')}" title="Custom accent color">
+      <button class="btn" id="setAccentReset" title="Use the theme's default accent">Reset</button>
+    </div>
+    <div class="hint">Theme and accent apply instantly. The accent picker is a test feature and overrides the theme's accent everywhere.</div>
+
+    <label>Language</label>
+    <select id="setLang">
+      <option value="en" ${cfg.lang !== 'de' ? 'selected' : ''}>English</option>
+      <option value="de" ${cfg.lang === 'de' ? 'selected' : ''}>Deutsch</option>
+    </select>
+
     <label>Look &amp; feel</label>
     <div class="modal-row" style="gap:10px">
-      <input type="checkbox" id="setAnim" ${cfg.animations !== false ? 'checked' : ''} style="width:16px;height:16px;accent-color:#a855f7">
-      <span style="font-size:13.5px">Smooth animations <span class="muted">(uncheck for the classic v1.0 feel — applies instantly)</span></span>
+      <input type="checkbox" id="setAnim" ${cfg.animations !== false ? 'checked' : ''} style="width:16px;height:16px">
+      <span style="font-size:13.5px">Smooth animations</span>
+    </div>
+    <div class="modal-row" style="gap:10px;margin-top:6px">
+      <input type="checkbox" id="setThumbs" ${cfg.thumbnails ? 'checked' : ''} style="width:16px;height:16px">
+      <span style="font-size:13.5px">Image thumbnails in the file tree</span>
+    </div>
+    <div class="modal-row" style="gap:10px;margin-top:6px">
+      <input type="checkbox" id="setDup" ${cfg.dupFinder ? 'checked' : ''} style="width:16px;height:16px">
+      <span style="font-size:13.5px">Duplicate finder (adds a scan button to Stats)</span>
+    </div>
+
+    <label>Watch folder</label>
+    <div class="modal-row" style="gap:10px">
+      <input type="checkbox" id="setWatch" ${cfg.watchEnabled ? 'checked' : ''} style="width:16px;height:16px">
+      <span style="font-size:13.5px">Watch a folder for new files and offer to sort them</span>
+    </div>
+    <div class="modal-row" style="margin-top:6px">
+      <input type="text" id="setWatchPath" value="${esc(cfg.watchPath || '')}" readonly placeholder="Downloads (default)">
+      <button class="btn" id="setWatchBrowse">Browse</button>
     </div>
 
     <label>AI assistant</label>
-    <select id="setAi">
-      <option value="claude" ${cfg.aiProvider === 'claude' ? 'selected' : ''}>Claude (claude.ai)</option>
-      <option value="chatgpt" ${cfg.aiProvider === 'chatgpt' ? 'selected' : ''}>ChatGPT (chatgpt.com)</option>
-      <option value="gemini" ${cfg.aiProvider === 'gemini' ? 'selected' : ''}>Google Gemini</option>
-      <option value="copilot" ${cfg.aiProvider === 'copilot' ? 'selected' : ''}>Microsoft Copilot</option>
+    <select id="setAiMode">
+      <option value="api" ${(cfg.aiMode || 'api') === 'api' ? 'selected' : ''}>Built-in agent (API key, can search your projects)</option>
+      <option value="web" ${cfg.aiMode === 'web' ? 'selected' : ''}>Embedded website (sign in with your account)</option>
     </select>
-    <div class="hint">Opens in a built-in window — sign in once with your own account, the login is remembered. “Ask AI” on a project also copies its full context (files, nicknames, notes) to paste into the chat.</div>
+    <div id="setAiApiRows">
+      <div class="modal-row" style="margin-top:8px">
+        <select id="setAiApiProvider" style="flex:0 0 150px">
+          <option value="anthropic" ${cfg.aiApi.provider === 'anthropic' ? 'selected' : ''}>Claude (API)</option>
+          <option value="groq" ${cfg.aiApi.provider === 'groq' ? 'selected' : ''}>Groq</option>
+          <option value="custom" ${cfg.aiApi.provider === 'custom' ? 'selected' : ''}>Custom (OpenAI-style)</option>
+        </select>
+        <input type="password" id="setAiKey" value="${esc(cfg.aiApi.apiKey || '')}" placeholder="API key" spellcheck="false">
+      </div>
+      <div class="modal-row" style="margin-top:6px">
+        <input type="text" id="setAiModel" value="${esc(cfg.aiApi.model || '')}" placeholder="Model (blank = default)" spellcheck="false">
+        <input type="text" id="setAiBase" value="${esc(cfg.aiApi.baseUrl || '')}" placeholder="Base URL (custom only)" spellcheck="false">
+      </div>
+      <div class="hint">The agent can list, search and read your projects to answer questions. Keys are stored locally in config.json. Defaults: claude-opus-4-8 (Claude), llama-3.3-70b-versatile (Groq).</div>
+    </div>
+    <div id="setAiWebRows" hidden>
+      <select id="setAi" style="margin-top:8px">
+        <option value="claude" ${cfg.aiProvider === 'claude' ? 'selected' : ''}>Claude (claude.ai)</option>
+        <option value="chatgpt" ${cfg.aiProvider === 'chatgpt' ? 'selected' : ''}>ChatGPT (chatgpt.com)</option>
+        <option value="gemini" ${cfg.aiProvider === 'gemini' ? 'selected' : ''}>Google Gemini</option>
+        <option value="copilot" ${cfg.aiProvider === 'copilot' ? 'selected' : ''}>Microsoft Copilot</option>
+      </select>
+      <div class="hint">Opens inside the AI panel. Sign in once with your own account; the login is remembered. "Ask AI" on a project copies its context to paste into the chat.</div>
+    </div>
 
     <label>Tags</label>
     <div id="tagMgr"></div>
@@ -1000,18 +1171,47 @@ function openSettings() {
     renderTplSelect();
   };
 
-  // animations toggle applies live so both feels can be compared instantly
-  box.querySelector('#setAnim').onchange = async (e) => {
-    const r = await window.krate.saveConfig({ animations: e.target.checked });
+  // look & feel controls apply live so changes can be compared instantly
+  const liveSave = async (partial) => {
+    const r = await window.krate.saveConfig(partial);
     state.config = r.config;
-    document.body.classList.toggle('anim', e.target.checked);
+    applyLook(state.config);
   };
+  box.querySelector('#setAnim').onchange = (e) => liveSave({ animations: e.target.checked });
+  box.querySelector('#setTheme').onchange = (e) => liveSave({ theme: e.target.value });
+  box.querySelector('#setAccent').oninput = (e) => liveSave({ accentColor: e.target.value });
+  box.querySelector('#setAccentReset').onclick = () => liveSave({ accentColor: null });
+  box.querySelector('#setLang').onchange = (e) => liveSave({ lang: e.target.value });
+
+  box.querySelector('#setWatchBrowse').onclick = async () => {
+    const dir = await window.krate.pickFolder();
+    if (dir) box.querySelector('#setWatchPath').value = dir;
+  };
+
+  const aiModeSel = box.querySelector('#setAiMode');
+  const syncAiRows = () => {
+    box.querySelector('#setAiApiRows').hidden = aiModeSel.value !== 'api';
+    box.querySelector('#setAiWebRows').hidden = aiModeSel.value !== 'web';
+  };
+  aiModeSel.onchange = syncAiRows;
+  syncAiRows();
 
   box.querySelector('#setDone').onclick = async () => {
     if (removedSrcs.length) await window.krate.tplDeleteFiles({ srcs: removedSrcs });
     const r = await window.krate.saveConfig({
       tags, templates,
+      thumbnails: box.querySelector('#setThumbs').checked,
+      dupFinder: box.querySelector('#setDup').checked,
+      watchEnabled: box.querySelector('#setWatch').checked,
+      watchPath: box.querySelector('#setWatchPath').value || null,
+      aiMode: aiModeSel.value,
       aiProvider: box.querySelector('#setAi').value,
+      aiApi: {
+        provider: box.querySelector('#setAiApiProvider').value,
+        apiKey: box.querySelector('#setAiKey').value.trim(),
+        model: box.querySelector('#setAiModel').value.trim(),
+        baseUrl: box.querySelector('#setAiBase').value.trim(),
+      },
     });
     state.config = r.config;
     closeModal();
@@ -1024,9 +1224,7 @@ function openSettings() {
 async function openGraph(scopePath = '') {
   const wasCurrent = state.current;
   state.current = null;
-  $('homeView').hidden = true;
-  $('detailView').hidden = true;
-  $('graphView').hidden = false;
+  showView('graphView');
 
   const sel = $('graphScope');
   sel.innerHTML = '<option value="">All projects</option>' +
@@ -1045,27 +1243,67 @@ async function buildGraph(scopePath) {
     return t ? t.color : (fallback || '#a855f7');
   };
 
+  const cssVar = (name) => getComputedStyle(document.body).getPropertyValue(name).trim();
+  const cMuted = cssVar('--muted') || '#70706a';
+  const cFolder = document.body.dataset.theme === 'light' ? '#8a8a80' : '#b9b9af';
+  const cLink = '#0e7fc0';
+  const cNick = '#b8860b';
+
   if (!scopePath) {
-    // all projects + tags + links
+    // whole library: every project with its full folder and file structure,
+    // tags, links, and dashed edges between related projects
     const usedTags = new Set();
+    const PER_PROJECT = 40;
+    const TOTAL = 650;
+    let total = 0;
+
     for (const p of state.projects) {
       nodes.push({
         id: 'p:' + p.path, label: p.meta.title, type: 'project',
-        color: p.meta.cover ? colorOf(p.meta.tags) : (p.meta.color || colorOf(p.meta.tags)),
-        r: 11, favorite: p.meta.favorite, path: p.path,
+        color: p.meta.color || colorOf(p.meta.tags),
+        r: 12, favorite: p.meta.favorite, path: p.path,
       });
       for (const t of p.meta.tags) {
         usedTags.add(t);
         edges.push({ a: 'p:' + p.path, b: 't:' + t });
       }
       for (const l of p.meta.links || []) {
-        nodes.push({ id: 'l:' + l.id, label: l.title, type: 'link', color: '#38bdf8', r: 5, url: l.url });
+        nodes.push({ id: 'l:' + l.id, label: l.title, type: 'link', color: cLink, r: 4.5, url: l.url });
         edges.push({ a: 'p:' + p.path, b: 'l:' + l.id });
+      }
+      if (total < TOTAL) {
+        const { meta, tree } = await window.krate.loadProject(p.path);
+        let count = 0;
+        const walk = (list, parentId) => {
+          for (const n of list) {
+            if (count++ > PER_PROJECT || total++ > TOTAL) return;
+            const id = `f:${p.path}:${n.rel}`;
+            const nick = meta.nicknames[n.rel];
+            nodes.push({
+              id, label: nick || n.name, type: n.dir ? 'folder' : 'file',
+              color: n.dir ? cFolder : nick ? cNick : cMuted,
+              r: n.dir ? 6 : 3.8,
+              abs: p.path + '\\' + n.rel.split('/').join('\\'),
+              dir: n.dir,
+            });
+            edges.push({ a: parentId, b: id });
+            if (n.children) walk(n.children, id);
+          }
+        };
+        walk(tree, 'p:' + p.path);
       }
     }
     for (const t of usedTags) {
       const cfg = state.config.tags.find((x) => x.name === t);
-      nodes.push({ id: 't:' + t, label: '#' + t, type: 'tag', color: cfg ? cfg.color : '#8d88a3', r: 7 });
+      nodes.push({ id: 't:' + t, label: '#' + t, type: 'tag', color: cfg ? cfg.color : cMuted, r: 7.5 });
+    }
+    // related-project edges (dashed)
+    const byMetaId = new Map(state.projects.map((p) => [p.meta.id, p]));
+    for (const p of state.projects) {
+      for (const rid of p.meta.related || []) {
+        const other = byMetaId.get(rid);
+        if (other) edges.push({ a: 'p:' + p.path, b: 'p:' + other.path, kind: 'related' });
+      }
     }
   } else {
     // one project: folders + files + tags + links
@@ -1078,7 +1316,7 @@ async function buildGraph(scopePath) {
       edges.push({ a: 'root', b: 't:' + t });
     }
     for (const l of meta.links || []) {
-      nodes.push({ id: 'l:' + l.id, label: l.title, type: 'link', color: '#38bdf8', r: 5, url: l.url });
+      nodes.push({ id: 'l:' + l.id, label: l.title, type: 'link', color: cLink, r: 5, url: l.url });
       edges.push({ a: 'root', b: 'l:' + l.id });
     }
     let count = 0;
@@ -1089,7 +1327,7 @@ async function buildGraph(scopePath) {
         const nick = meta.nicknames[n.rel];
         nodes.push({
           id, label: nick || n.name, type: n.dir ? 'folder' : 'file',
-          color: n.dir ? '#b18cf0' : nick ? '#fbbf24' : '#5f5a75',
+          color: n.dir ? cFolder : nick ? cNick : cMuted,
           r: n.dir ? 7 : 4.5,
           abs: scopePath + '\\' + n.rel.split('/').join('\\'),
           dir: n.dir, projectPath: scopePath, rel: n.rel,
@@ -1114,10 +1352,226 @@ async function buildGraph(scopePath) {
 $('btnGraph').onclick = () => openGraph();
 $('btnGraphBack').onclick = () => { goHome(); refresh(); };
 
-/* ----------------------------------------------------------------- ai --- */
-$('btnAi').onclick = async () => {
-  await window.krate.aiOpen({ provider: state.config.aiProvider });
+/* ------------------------------------------------------------ ai panel --- */
+const AI_URLS = {
+  claude: 'https://claude.ai/new',
+  chatgpt: 'https://chatgpt.com/',
+  gemini: 'https://gemini.google.com/app',
+  copilot: 'https://copilot.microsoft.com/',
 };
+const aiChat = []; // [{role, content}]
+let aiBusy = false;
+
+function openAiPanel() {
+  const mode = state.config.aiMode || 'api';
+  $('aiPanel').hidden = false;
+  if (mode === 'web') {
+    $('aiMessages').hidden = true;
+    $('aiInputRow').hidden = true;
+    $('aiWeb').hidden = false;
+    const url = AI_URLS[state.config.aiProvider] || AI_URLS.claude;
+    let wv = $('aiWeb').querySelector('webview');
+    if (!wv) {
+      wv = document.createElement('webview');
+      wv.setAttribute('partition', 'persist:krate-ai');
+      wv.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36');
+      wv.setAttribute('allowpopups', '');
+      wv.src = url;
+      $('aiWeb').appendChild(wv);
+    } else if (wv.dataset.provider !== state.config.aiProvider) {
+      wv.src = url;
+    }
+    wv.dataset.provider = state.config.aiProvider;
+    $('aiSub').textContent = state.config.aiProvider;
+  } else {
+    $('aiMessages').hidden = false;
+    $('aiInputRow').hidden = false;
+    $('aiWeb').hidden = true;
+    const api = state.config.aiApi || {};
+    $('aiSub').textContent = api.provider || 'anthropic';
+    renderAiChat();
+    $('aiInput').focus();
+  }
+}
+
+function renderAiChat() {
+  const box = $('aiMessages');
+  if (!aiChat.length) {
+    box.innerHTML = `<div class="ai-empty">${(state.config.aiApi && state.config.aiApi.apiKey)
+      ? 'Ask anything about your projects.<br>The agent can list, search and read them.'
+      : 'No API key yet.<br>Add one in Settings, or switch to web mode to sign in with your account.'}</div>`;
+    return;
+  }
+  box.innerHTML = aiChat.map((m) => {
+    if (m.role === 'activity') return `<div class="ai-activity">→ ${esc(m.content)}</div>`;
+    if (m.role === 'error') return `<div class="aim err">${esc(m.content)}</div>`;
+    return `<div class="aim ${m.role === 'user' ? 'user' : 'bot'}">${esc(m.content)}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendAi() {
+  if (aiBusy) return;
+  const text = $('aiInput').value.trim();
+  if (!text) return;
+  $('aiInput').value = '';
+  aiChat.push({ role: 'user', content: text });
+  aiChat.push({ role: 'activity', content: window.T('Thinking…') });
+  renderAiChat();
+  aiBusy = true;
+  const history = aiChat.filter((m) => m.role === 'user' || m.role === 'assistant');
+  const r = await window.krate.aiAsk({ history });
+  aiBusy = false;
+  // drop the transient activity lines from this turn
+  for (let i = aiChat.length - 1; i >= 0 && aiChat[i].role === 'activity'; i--) aiChat.splice(i, 1);
+  if (r.error) aiChat.push({ role: 'error', content: r.error });
+  else aiChat.push({ role: 'assistant', content: r.text });
+  renderAiChat();
+}
+
+window.krate.on('ai-activity', (text) => {
+  if (!aiBusy) return;
+  aiChat.push({ role: 'activity', content: text });
+  renderAiChat();
+});
+
+$('btnAi').onclick = () => {
+  if ($('aiPanel').hidden) openAiPanel();
+  else $('aiPanel').hidden = true;
+};
+$('btnAiClose').onclick = () => { $('aiPanel').hidden = true; };
+$('btnAiSend').onclick = sendAi;
+$('aiInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAi(); }
+});
+
+/* ---------------------------------------------------------------- stats --- */
+async function openStats() {
+  state.current = null;
+  showView('statsView');
+  $('statsView').innerHTML = `<div class="view-title">${window.KI.get('chart')} <span>${window.T('Library stats')}</span></div><div class="view-sub">${window.T('Scanning…')}</div>`;
+  const s = await window.krate.statsGet();
+  const bar = (label, val, max) => `
+    <div class="bar-row">
+      <span class="bl">${esc(label)}</span>
+      <span class="bar"><i style="width:${max ? Math.round((val / max) * 100) : 0}%"></i></span>
+      <span class="bv">${val}</span>
+    </div>`;
+  const maxStatus = Math.max(1, ...Object.values(s.byStatus));
+  const maxTag = Math.max(1, ...Object.values(s.byTag));
+  const cards = [
+    [s.count, window.T('Projects')],
+    [s.favorites, window.T('Favorites')],
+    [s.totalFiles, window.T('Files')],
+    [fmtSize(s.totalBytes), window.T('Total size')],
+  ];
+  $('statsView').innerHTML = `
+    <div class="view-title">${window.KI.get('chart')} <span>${window.T('Library stats')}</span></div>
+    <div class="view-sub">&nbsp;</div>
+    <div class="stats-grid">
+      ${cards.map(([n, l], i) => `<div class="stat-card" style="--i:${i}"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('')}
+    </div>
+    <div class="stats-cols">
+      <div class="stats-col">
+        <h3 class="view-h3">${window.T('By status')}</h3>
+        ${Object.entries(s.byStatus).map(([k, v]) => bar(k, v, maxStatus)).join('') || '<div class="muted small">–</div>'}
+        <h3 class="view-h3" style="margin-top:16px">${window.T('By tag')}</h3>
+        ${Object.entries(s.byTag).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => bar(k, v, maxTag)).join('') || '<div class="muted small">–</div>'}
+      </div>
+      <div class="stats-col">
+        <h3 class="view-h3">${window.T('Biggest projects')}</h3>
+        <div class="big-list">
+          ${s.biggest.map((b) => `
+            <div class="big-row" data-path="${esc(b.path)}">
+              ${window.KI.get('box', 'ri-proj')} <span>${esc(b.title)}</span>
+              <span class="sz">${fmtSize(b.bytes)} · ${b.files} files</span>
+            </div>`).join('')}
+        </div>
+        ${state.config.dupFinder ? `<button class="btn" id="btnDupes" style="margin-top:12px">${window.KI.get('copy')} ${window.T('Find duplicate files')}</button><div id="dupList" style="margin-top:12px"></div>` : ''}
+      </div>
+    </div>`;
+  $('statsView').querySelectorAll('.big-row').forEach((el) => {
+    el.onclick = () => openProject(el.dataset.path);
+  });
+  const dupBtn = $('statsView').querySelector('#btnDupes');
+  if (dupBtn) {
+    dupBtn.onclick = async () => {
+      const list = $('statsView').querySelector('#dupList');
+      list.innerHTML = `<div class="muted small">${window.T('Scanning…')}</div>`;
+      const groups = await window.krate.dupesFind();
+      list.innerHTML = groups.length ? groups.map((g) => `
+        <div class="dup-group">
+          <div class="dg-head">${g.files.length} × ${fmtSize(g.size)} — ${esc(g.files[0].rel.split('/').pop())}</div>
+          ${g.files.map((f) => `<div class="dup-file" data-abs="${esc(f.abs)}">${window.KI.get('file')} ${esc(f.project)} / ${esc(f.rel)}</div>`).join('')}
+        </div>`).join('') : `<div class="muted small">${window.T('No duplicates found.')}</div>`;
+      list.querySelectorAll('.dup-file').forEach((el) => {
+        el.onclick = () => window.krate.reveal(el.dataset.abs);
+      });
+    };
+  }
+}
+$('btnStats').onclick = openStats;
+
+/* ---------------------------------------------------------------- trash --- */
+async function openTrash() {
+  state.current = null;
+  showView('trashView');
+  const list = await window.krate.trashList();
+  $('trashView').innerHTML = `
+    <div class="view-title">${window.KI.get('trash')} <span>${window.T('Trash')}</span></div>
+    <div class="view-sub">${list.length || window.T('Trash is empty.')}</div>
+    ${list.map((e) => `
+      <div class="trash-row" data-id="${esc(e.id)}">
+        ${window.KI.get('box', 'ri-proj')}
+        <div>
+          <div class="t-title">${esc(e.title)}</div>
+          <div class="t-sub">${window.T('deleted')} ${timeAgo(e.deletedAt)} · ${esc(e.origin)}</div>
+        </div>
+        <div class="t-acts">
+          <button class="btn" data-act="restore">${window.KI.get('restore')} ${window.T('Restore')}</button>
+          <button class="btn btn-danger" data-act="purge">${window.KI.get('trash')} ${window.T('Delete forever')}</button>
+        </div>
+      </div>`).join('')}`;
+  $('trashView').querySelectorAll('.trash-row').forEach((row) => {
+    row.querySelector('[data-act="restore"]').onclick = async () => {
+      await window.krate.trashRestore({ id: row.dataset.id });
+      await refresh();
+      openTrash();
+      toast(window.T('Restore') + ' ✓');
+    };
+    row.querySelector('[data-act="purge"]').onclick = async () => {
+      await window.krate.trashPurge({ id: row.dataset.id });
+      openTrash();
+    };
+  });
+}
+$('btnTrash').onclick = openTrash;
+
+/* ----------------------------------------------------- watch folder sort --- */
+window.krate.on('watch-file', ({ path: absPath, name }) => {
+  const box = openModal(`
+    <h2>${window.T('Sort into project')}</h2>
+    <div class="muted small" style="margin-bottom:10px">${esc(name)}</div>
+    <label>${window.T('Projects')}</label>
+    <select id="wfProject">
+      ${state.projects.map((p) => `<option value="${esc(p.path)}">${esc(p.meta.title)}</option>`).join('')}
+    </select>
+    <label>Subfolder (optional)</label>
+    <input type="text" id="wfSub" placeholder="e.g. Footage/Raw" spellcheck="false">
+    <div class="modal-actions">
+      <button class="btn" id="wfCancel">Cancel</button>
+      <button class="btn btn-primary" id="wfMove">${window.T('Sort into project')}</button>
+    </div>
+  `);
+  box.querySelector('#wfCancel').onclick = closeModal;
+  box.querySelector('#wfMove').onclick = async () => {
+    const project = box.querySelector('#wfProject').value;
+    const sub = box.querySelector('#wfSub').value.trim().replace(/^\/+|\/+$/g, '');
+    await window.krate.importPaths({ path: project, targetRel: sub, paths: [absPath] });
+    closeModal();
+    toast('✓ ' + name);
+  };
+});
 
 /* ---------------------------------------------------------- first run --- */
 function openWelcome() {

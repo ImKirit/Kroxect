@@ -24,6 +24,14 @@ contextBridge.exposeInMainWorld('krate', {
   reveal: invoke('fs:reveal'),
   openExternal: invoke('fs:openExternal'),
   aiOpen: invoke('ai:open'),
+  aiAsk: invoke('ai:ask'),
+  aiContext: invoke('ai:context'),
+  trashList: invoke('trash:list'),
+  trashRestore: invoke('trash:restore'),
+  trashPurge: invoke('trash:purge'),
+  exportZip: invoke('project:exportZip'),
+  statsGet: invoke('stats:get'),
+  dupesFind: invoke('dupes:find'),
 
   search: invoke('search:query'),
   browse: invoke('overlay:browse'),
@@ -34,7 +42,7 @@ contextBridge.exposeInMainWorld('krate', {
   pathForFile: (file) => webUtils.getPathForFile(file),
 
   on: (channel, cb) => {
-    const allowed = ['overlay-shown', 'overlay-blur', 'goto-project'];
+    const allowed = ['overlay-shown', 'overlay-blur', 'goto-project', 'ai-activity', 'watch-file'];
     if (allowed.includes(channel)) ipcRenderer.on(channel, (e, ...args) => cb(...args));
   },
 });

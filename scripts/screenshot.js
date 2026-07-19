@@ -55,6 +55,23 @@ app.whenReady().then(async () => {
   await sleep(2600); // let the force layout settle
   await capMain('main-graph.png');
 
+  // ---- stats view --------------------------------------------------------
+  await main.webContents.executeJavaScript(`document.getElementById('btnStats').click()`);
+  await sleep(900);
+  await capMain('main-stats.png');
+
+  // ---- AI panel (demo answer) -------------------------------------------
+  await main.webContents.executeJavaScript(`
+    document.getElementById('btnAi').click();
+    document.getElementById('aiInput').value = 'Where is the main clip of my AMV?';
+    document.getElementById('btnAiSend').click();`);
+  await sleep(1200);
+  await capMain('main-ai.png');
+  await main.webContents.executeJavaScript(`
+    document.getElementById('btnAiClose').click();
+    document.querySelector('#statusNav .nav-item').click();`);
+  await sleep(400);
+
   // ---- settings: visual template editor ---------------------------------
   await main.webContents.executeJavaScript(`
     document.getElementById('btnGraphBack').click();

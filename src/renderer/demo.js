@@ -10,6 +10,17 @@ if (!window.krate) {
     projectsRoot: 'D:\\Projects',
     externalProjects: [],
     hotkey: 'Control+Alt+K',
+    animations: true,
+    theme: 'light',
+    accentColor: null,
+    lang: 'en',
+    thumbnails: false,
+    watchEnabled: false,
+    watchPath: null,
+    dupFinder: true,
+    aiMode: 'api',
+    aiProvider: 'claude',
+    aiApi: { provider: 'anthropic', apiKey: 'demo', model: '', baseUrl: '' },
     tags: [
       { name: 'Edit', color: '#a855f7' },
       { name: 'Video', color: '#ef4444' },
@@ -116,7 +127,9 @@ if (!window.krate) {
   for (const p of projects) {
     p.meta.favorite = !!p.meta.favorite;
     p.meta.links = p.meta.links || [];
+    p.meta.related = p.meta.related || [];
   }
+  projects[0].meta.related = ['5']; // Neon Skies uses sounds from Beat Pack 01
 
   const flat = [];
   for (const p of projects) {
@@ -182,6 +195,29 @@ if (!window.krate) {
     startDrag: () => { }, pathForFile: () => '',
     openExternal: async () => { },
     aiOpen: async () => ({ copied: true }),
+    aiAsk: async ({ history }) => {
+      await new Promise((r) => setTimeout(r, 400));
+      const q = history[history.length - 1]?.content || '';
+      return { text: `Demo mode: the built-in agent would now search your library to answer "${q.slice(0, 60)}". Install Krate and add an API key in Settings to use it for real.` };
+    },
+    aiContext: async () => 'demo context',
+    trashList: async () => [
+      { id: 'demo1', title: 'Old Intro Sequence', origin: 'D:\\Projects\\Old Intro Sequence', deletedAt: iso(4000) },
+    ],
+    trashRestore: async () => 'D:\\Projects\\Old Intro Sequence',
+    trashPurge: async () => true,
+    exportZip: async () => null,
+    statsGet: async () => ({
+      count: 6, favorites: 2, totalBytes: 2147483648 + 734003200, totalFiles: 18,
+      byStatus: { active: 2, paused: 1, done: 2, idea: 1 },
+      byTag: { Video: 2, Edit: 1, Game: 2, Web: 1, Design: 1, App: 1, Music: 1, School: 1 },
+      biggest: [
+        { title: 'Neon Skies AMV', path: 'D:\\Projects\\Neon Skies AMV', bytes: 1932735283, files: 8, modified: iso(90) },
+        { title: 'KiritSMP Trailer', path: 'D:\\Projects\\KiritSMP Trailer', bytes: 536870912, files: 2, modified: iso(2800) },
+        { title: 'Chaos Mod', path: 'D:\\Projects\\Chaos Mod', bytes: 314572800, files: 4, modified: iso(10000) },
+      ],
+    }),
+    dupesFind: async () => [],
     on: () => { },
   };
 }
