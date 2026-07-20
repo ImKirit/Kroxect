@@ -163,7 +163,9 @@
         <div class="graph-hud">
           <button class="btn btn-ghost" id="btnGraphBack"><span class="ico" data-icon="arrowLeft"></span></button>
           <select id="graphScope"></select>
-          <span class="muted small graph-hint">drag nodes · scroll to zoom · drag background to pan · click to open</span>
+          <button class="btn btn-ghost" id="btnGraphLabels" title="Folder and file names: on, faint, off"><span class="ico" data-icon="note"></span> <span id="graphLabelsState">Labels</span></button>
+          <button class="btn btn-ghost" id="btnGraphUnpin" title="Remove every pin in this view"><span class="ico" data-icon="pin"></span> Unpin all</button>
+          <span class="muted small graph-hint">drag nodes · scroll to zoom · right-click pins a node in place · click to open</span>
         </div>
         <canvas id="graphCanvas"></canvas>
       </div>

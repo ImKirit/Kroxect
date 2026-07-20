@@ -1260,6 +1260,7 @@ async function openGraph(scopePath = '') {
   sel.onchange = () => buildGraph(sel.value);
 
   window.KGraph.bind();
+  syncGraphHud();
   await buildGraph(scopePath || (wasCurrent ? wasCurrent.path : ''));
   if (wasCurrent) sel.value = wasCurrent.path;
 }
@@ -1271,25 +1272,54 @@ async function buildGraph(scopePath) {
     return t ? t.color : (fallback || '#a855f7');
   };
 
-  const cssVar = (name) => getComputedStyle(document.body).getPropertyValue(name).trim();
-  const cMuted = cssVar('--muted') || '#70706a';
-  const cFolder = document.body.dataset.theme === 'light' ? '#8a8a80' : '#b9b9af';
+  // folders are yellow like the logo, files are white with an outline
+  const cFolder = '#f5b301';
+  const cFile = '#ffffff';
   const cLink = '#0e7fc0';
-  const cNick = '#b8860b';
+
+  // walks a tree to full depth, sizes folders by how many files live inside
+  // them (bigger folders also pull toward the center), returns the file count
+  const addTree = (list, parentId, meta, basePath, idPrefix, cap) => {
+    let files = 0;
+    for (const n of list) {
+      if (cap.left <= 0) return files;
+      cap.left--;
+      const id = idPrefix + n.rel;
+      const nick = meta.nicknames[n.rel];
+      const node = {
+        id, label: nick || n.name, type: n.dir ? 'folder' : 'file',
+        color: n.dir ? cFolder : cFile,
+        r: n.dir ? 6 : 4,
+        outline: !n.dir,
+        nick: !!nick && !n.dir,
+        abs: basePath + '\\' + n.rel.split('/').join('\\'),
+        dir: n.dir,
+      };
+      nodes.push(node);
+      edges.push({ a: parentId, b: id, kind: 'tree' });
+      if (n.dir) {
+        const sub = n.children ? addTree(n.children, id, meta, basePath, idPrefix, cap) : 0;
+        node.r = 5.5 + Math.min(9, Math.sqrt(sub) * 1.7);
+        node.g = 1 + (node.r - 5.5) * 0.1; // bigger folders sit closer to the center
+        files += sub;
+      } else {
+        files += 1;
+      }
+    }
+    return files;
+  };
 
   if (!scopePath) {
-    // whole library: every project with its full folder and file structure,
-    // tags, links, and dashed edges between related projects
+    // whole library: every project with its complete folder and file
+    // structure, tags, links, and dashed edges between related projects
     const usedTags = new Set();
-    const PER_PROJECT = 40;
-    const TOTAL = 650;
-    let total = 0;
+    const perProject = Math.max(80, Math.min(280, Math.floor(1400 / Math.max(1, state.projects.length))));
 
     for (const p of state.projects) {
       nodes.push({
         id: 'p:' + p.path, label: p.meta.title, type: 'project',
         color: p.meta.color || colorOf(p.meta.tags),
-        r: 12, favorite: p.meta.favorite, path: p.path,
+        r: 12, g: 1.6, favorite: p.meta.favorite, path: p.path,
       });
       for (const t of p.meta.tags) {
         usedTags.add(t);
@@ -1299,33 +1329,13 @@ async function buildGraph(scopePath) {
         nodes.push({ id: 'l:' + l.id, label: l.title, type: 'link', color: cLink, r: 4.5, url: l.url });
         edges.push({ a: 'p:' + p.path, b: 'l:' + l.id });
       }
-      if (total < TOTAL) {
-        const { meta, tree } = await window.krate.loadProject(p.path);
-        let count = 0;
-        const walk = (list, parentId) => {
-          for (const n of list) {
-            if (count++ > PER_PROJECT || total++ > TOTAL) return;
-            const id = `f:${p.path}:${n.rel}`;
-            const nick = meta.nicknames[n.rel];
-            nodes.push({
-              id, label: nick || n.name, type: n.dir ? 'folder' : 'file',
-              color: n.dir ? cFolder : nick ? cNick : cMuted,
-              r: n.dir ? 6 : 3.8,
-              abs: p.path + '\\' + n.rel.split('/').join('\\'),
-              dir: n.dir,
-            });
-            edges.push({ a: parentId, b: id });
-            if (n.children) walk(n.children, id);
-          }
-        };
-        walk(tree, 'p:' + p.path);
-      }
+      const { meta, tree } = await window.krate.loadProject(p.path);
+      addTree(tree, 'p:' + p.path, meta, p.path, `f:${p.path}:`, { left: perProject });
     }
     for (const t of usedTags) {
       const cfg = state.config.tags.find((x) => x.name === t);
-      nodes.push({ id: 't:' + t, label: '#' + t, type: 'tag', color: cfg ? cfg.color : cMuted, r: 7.5 });
+      nodes.push({ id: 't:' + t, label: '#' + t, type: 'tag', color: cfg ? cfg.color : cFolder, r: 7.5 });
     }
-    // related-project edges (dashed)
     const byMetaId = new Map(state.projects.map((p) => [p.meta.id, p]));
     for (const p of state.projects) {
       for (const rid of p.meta.related || []) {
@@ -1334,11 +1344,11 @@ async function buildGraph(scopePath) {
       }
     }
   } else {
-    // one project: folders + files + tags + links
+    // one project: full depth folders + files + tags + links
     const p = state.projects.find((x) => x.path === scopePath);
     if (!p) return;
     const { meta, tree } = await window.krate.loadProject(scopePath);
-    nodes.push({ id: 'root', label: meta.title, type: 'project', color: meta.color || '#a855f7', r: 13, favorite: meta.favorite, path: scopePath });
+    nodes.push({ id: 'root', label: meta.title, type: 'project', color: meta.color || '#a855f7', r: 13, g: 1.6, favorite: meta.favorite, path: scopePath });
     for (const t of meta.tags) {
       nodes.push({ id: 't:' + t, label: '#' + t, type: 'tag', color: colorOf([t]), r: 7 });
       edges.push({ a: 'root', b: 't:' + t });
@@ -1347,38 +1357,45 @@ async function buildGraph(scopePath) {
       nodes.push({ id: 'l:' + l.id, label: l.title, type: 'link', color: cLink, r: 5, url: l.url });
       edges.push({ a: 'root', b: 'l:' + l.id });
     }
-    let count = 0;
-    const walk = (list, parentId) => {
-      for (const n of list) {
-        if (count++ > 350) return;
-        const id = 'f:' + n.rel;
-        const nick = meta.nicknames[n.rel];
-        nodes.push({
-          id, label: nick || n.name, type: n.dir ? 'folder' : 'file',
-          color: n.dir ? cFolder : nick ? cNick : cMuted,
-          r: n.dir ? 7 : 4.5,
-          abs: scopePath + '\\' + n.rel.split('/').join('\\'),
-          dir: n.dir, projectPath: scopePath, rel: n.rel,
-        });
-        edges.push({ a: parentId, b: id });
-        if (n.children) walk(n.children, id);
-      }
-    };
-    walk(tree, 'root');
+    addTree(tree, 'root', meta, scopePath, 'f:', { left: 700 });
   }
 
-  window.KGraph.setData({ nodes, edges }, (n) => {
-    if (n.type === 'project') openProject(n.path);
-    else if (n.type === 'tag') { state.tag = n.label.slice(1); state.fav = false; state.status = ''; goHome(); }
-    else if (n.type === 'link') window.krate.openExternal(n.url);
-    else if (n.type === 'file') window.krate.reveal(n.abs);
-    else if (n.type === 'folder') window.krate.reveal(n.abs);
+  // pinned nodes are remembered per view (all projects vs a single project)
+  const pinKey = 'krate.graph.pins:' + (scopePath || '::all');
+  let pins = {};
+  try { pins = JSON.parse(localStorage.getItem(pinKey) || '{}'); } catch { }
+
+  window.KGraph.setData({ nodes, edges }, {
+    pins,
+    onPin: (map) => {
+      try { localStorage.setItem(pinKey, JSON.stringify(map)); } catch { }
+    },
+    onClick: (n) => {
+      if (n.type === 'project') openProject(n.path);
+      else if (n.type === 'tag') { state.tag = n.label.slice(1); state.fav = false; state.status = ''; goHome(); }
+      else if (n.type === 'link') window.krate.openExternal(n.url);
+      else if (n.type === 'file') window.krate.reveal(n.abs);
+      else if (n.type === 'folder') window.krate.reveal(n.abs);
+    },
   });
   window.KGraph.start();
 }
 
 $('btnGraph').onclick = () => openGraph();
 $('btnGraphBack').onclick = () => { goHome(); refresh(); };
+
+// label mode for folder and file names: on -> transparent -> off
+function syncGraphHud() {
+  const mode = window.KGraph.getLabelMode();
+  const names = { on: 'Labels: on', dim: 'Labels: faint', off: 'Labels: off' };
+  $('graphLabelsState').textContent = names[mode] || 'Labels';
+}
+$('btnGraphLabels').onclick = () => {
+  const next = { on: 'dim', dim: 'off', off: 'on' };
+  window.KGraph.setLabelMode(next[window.KGraph.getLabelMode()] || 'on');
+  syncGraphHud();
+};
+$('btnGraphUnpin').onclick = () => window.KGraph.unpinAll();
 
 /* ------------------------------------------------------------ ai panel --- */
 const AI_URLS = {
