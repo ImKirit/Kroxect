@@ -17,6 +17,16 @@
       <div class="boot-bar"><i></i></div>
     </div>
   </div>
+  <!-- sliding "new update" bar; text scrolls left, button stays -->
+  <div id="updateBar" hidden>
+    <div class="ub-track" id="ubTrack"></div>
+    <button class="ub-btn" id="ubInstall"><span class="ico" data-icon="download"></span> <span data-i18n="Update now">Update now</span></button>
+    <button class="ub-close" id="ubClose" title="Dismiss"><span class="ico" data-icon="x"></span></button>
+  </div>
+
+  <!-- reusable top loading bar (graph, stats, ...) -->
+  <div id="loadBar" hidden><i id="loadBarFill"></i><span id="loadBarText"></span></div>
+
   <div id="app">
     <aside id="sidebar">
       <div class="rsz rsz-right" id="rszSidebar" title="Drag to resize, double-click to reset"></div>
@@ -200,6 +210,7 @@
 
   <script src="icons.js"></script>
   <script src="i18n.js"></script>
+  <script src="changelog.js"></script>
   <script src="demo.js"></script>
   <script src="graph.js"></script>
   <script src="app.js"></script>

@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('krate', {
   exportZip: invoke('project:exportZip'),
   statsGet: invoke('stats:get'),
   dupesFind: invoke('dupes:find'),
+  updateStatus: invoke('update:status'),
+  updateInstall: invoke('update:install'),
 
   search: invoke('search:query'),
   browse: invoke('overlay:browse'),
@@ -45,7 +47,7 @@ contextBridge.exposeInMainWorld('krate', {
   pathForFile: (file) => webUtils.getPathForFile(file),
 
   on: (channel, cb) => {
-    const allowed = ['overlay-shown', 'overlay-blur', 'goto-project', 'ai-activity', 'watch-file'];
+    const allowed = ['overlay-shown', 'overlay-blur', 'goto-project', 'ai-activity', 'watch-file', 'update-ready'];
     if (allowed.includes(channel)) ipcRenderer.on(channel, (e, ...args) => cb(...args));
   },
 });

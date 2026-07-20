@@ -155,16 +155,49 @@ function showView(id) {
 
 /* -------------------------------------------------------------- modal --- */
 function openModal(html) {
-  $('modalBox').innerHTML = html;
-  injectIcons($('modalBox'));
+  const box = $('modalBox');
+  box.className = ''; // clear any drag state from a previous modal
+  box.style.left = box.style.top = '';
+  box.innerHTML = html;
+  injectIcons(box);
   $('modalBackdrop').hidden = false;
-  const first = $('modalBox').querySelector('input[type="text"],textarea');
+  makeModalDraggable(box);
+  const first = box.querySelector('input[type="text"],textarea');
   if (first) setTimeout(() => first.focus(), 30);
-  return $('modalBox');
+  return box;
 }
 function closeModal() {
   $('modalBackdrop').hidden = true;
   $('modalBox').innerHTML = '';
+}
+
+// drag a modal around by its <h2> title bar
+function makeModalDraggable(box) {
+  const handle = box.querySelector('h2');
+  if (!handle) return;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const rect = box.getBoundingClientRect();
+    box.classList.add('dragged', 'dragging');
+    box.style.left = rect.left + 'px';
+    box.style.top = rect.top + 'px';
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+    handle.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const x = Math.max(0, Math.min(window.innerWidth - 60, ev.clientX - offX));
+      const y = Math.max(0, Math.min(window.innerHeight - 40, ev.clientY - offY));
+      box.style.left = x + 'px';
+      box.style.top = y + 'px';
+    };
+    const up = () => {
+      box.classList.remove('dragging');
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  });
 }
 $('modalBackdrop').addEventListener('mousedown', (e) => {
   if (e.target === $('modalBackdrop')) closeModal();
@@ -790,7 +823,13 @@ $('btnNew').onclick = () => {
       ${state.config.templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${t.dirs.length} folders${(t.files || []).length ? `, ${t.files.length} files` : ''})</option>`).join('')}
     </select>
     <label>Location</label>
-    <div class="modal-row">
+    <div class="modal-row" id="npRootRow" ${(state.config.projectsRoots || []).length > 1 ? '' : 'hidden'}>
+      <select id="npRoot" style="flex:1">
+        ${(state.config.projectsRoots || []).map((r, i) => `<option value="${esc(r)}" ${i === 0 ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+        <option value="__custom__">Choose another folder…</option>
+      </select>
+    </div>
+    <div class="modal-row" id="npCustomRow" ${(state.config.projectsRoots || []).length > 1 ? 'hidden' : ''}>
       <input type="text" id="npLoc" value="${esc(state.config.projectsRoot || '')}" readonly>
       <button class="btn" id="npBrowse">Browse</button>
     </div>
@@ -803,6 +842,16 @@ $('btnNew').onclick = () => {
   box.querySelectorAll('#npTags .chip').forEach((c) => {
     c.onclick = () => c.classList.toggle('on');
   });
+  const npRoot = box.querySelector('#npRoot');
+  if (npRoot) npRoot.onchange = () => {
+    if (npRoot.value === '__custom__') {
+      box.querySelector('#npCustomRow').hidden = false;
+      box.querySelector('#npLoc').value = customLocation || '';
+    } else {
+      box.querySelector('#npCustomRow').hidden = true;
+      customLocation = null;
+    }
+  };
   box.querySelector('#npBrowse').onclick = async () => {
     const dir = await window.krate.pickFolder();
     if (dir) { customLocation = dir; box.querySelector('#npLoc').value = dir; }
@@ -813,8 +862,11 @@ $('btnNew').onclick = () => {
     if (!name) return;
     const tags = [...box.querySelectorAll('#npTags .chip.on')].map((c) => c.dataset.t);
     const template = box.querySelector('#npTpl').value || null;
+    // pick the chosen default spot, a custom folder, or the single root
+    let location = customLocation;
+    if (!location && npRoot && npRoot.value && npRoot.value !== '__custom__') location = npRoot.value;
     try {
-      const { path } = await window.krate.createProject({ name, tags, template, location: customLocation });
+      const { path } = await window.krate.createProject({ name, tags, template, location });
       closeModal();
       await refresh();
       openProject(path);
@@ -836,11 +888,9 @@ function openSettings() {
   const box = openModal(`
     <h2>Settings</h2>
 
-    <label>Default projects folder</label>
-    <div class="modal-row">
-      <input type="text" id="setRoot" value="${esc(cfg.projectsRoot || '')}" readonly placeholder="Not set">
-      <button class="btn" id="setRootBrowse">Browse</button>
-    </div>
+    <label>Default project folders <span class="muted" style="font-weight:400;letter-spacing:0">— every subfolder counts as a project</span></label>
+    <div id="rootList"></div>
+    <button class="btn" id="setRootAdd" style="margin-top:6px"><span class="ico" data-icon="plus"></span> Add folder</button>
 
     <label>Quick-search hotkey</label>
     <div class="modal-row">
@@ -952,15 +1002,38 @@ function openSettings() {
     </div>
   `);
 
-  // root picker
-  box.querySelector('#setRootBrowse').onclick = async () => {
+  // project-folder roots: list, add, remove. The first one is the default spot.
+  const renderRoots = () => {
+    const roots = state.config.projectsRoots || [];
+    const el = box.querySelector('#rootList');
+    el.innerHTML = roots.length ? roots.map((r, i) => `
+      <div class="mgr-row root-row" data-root="${esc(r)}">
+        <span class="root-path" title="${esc(r)}">${esc(r)}</span>
+        ${i === 0 ? '<span class="root-badge">default</span>' : `<button class="btn btn-ghost root-def" title="Make default">${window.KI.get('star')}</button>`}
+        <button class="mgr-del root-del" title="Remove">${window.KI.get('x')}</button>
+      </div>`).join('') : '<div class="muted small" style="padding:6px 2px">No folders yet.</div>';
+    el.querySelectorAll('.root-row').forEach((row) => {
+      const r = row.dataset.root;
+      const def = row.querySelector('.root-def');
+      if (def) def.onclick = async () => {
+        const rest = state.config.projectsRoots.filter((x) => x !== r);
+        const res = await window.krate.saveConfig({ projectsRoots: [r, ...rest] });
+        state.config = res.config; renderRoots(); refresh();
+      };
+      row.querySelector('.root-del').onclick = async () => {
+        const res = await window.krate.saveConfig({ projectsRoots: state.config.projectsRoots.filter((x) => x !== r) });
+        state.config = res.config; renderRoots(); refresh();
+      };
+    });
+  };
+  renderRoots();
+  box.querySelector('#setRootAdd').onclick = async () => {
     const dir = await window.krate.pickFolder();
-    if (dir) {
-      box.querySelector('#setRoot').value = dir;
-      const r = await window.krate.saveConfig({ projectsRoot: dir });
-      state.config = r.config;
-      refresh();
-    }
+    if (!dir) return;
+    const roots = state.config.projectsRoots || [];
+    if (roots.some((x) => x.toLowerCase() === dir.toLowerCase())) return;
+    const res = await window.krate.saveConfig({ projectsRoots: [...roots, dir] });
+    state.config = res.config; renderRoots(); refresh();
   };
 
   // hotkey
@@ -1309,12 +1382,15 @@ async function buildGraph(scopePath) {
     return files;
   };
 
+  loadBar.start(window.T('Loading graph'));
+
   if (!scopePath) {
     // whole library: every project with its complete folder and file
     // structure, tags, links, and dashed edges between related projects
     const usedTags = new Set();
     const perProject = Math.max(80, Math.min(280, Math.floor(1400 / Math.max(1, state.projects.length))));
 
+    let done = 0;
     for (const p of state.projects) {
       nodes.push({
         id: 'p:' + p.path, label: p.meta.title, type: 'project',
@@ -1331,6 +1407,7 @@ async function buildGraph(scopePath) {
       }
       const { meta, tree } = await window.krate.loadProject(p.path);
       addTree(tree, 'p:' + p.path, meta, p.path, `f:${p.path}:`, { left: perProject });
+      loadBar.set(++done, state.projects.length, window.T('projects'));
     }
     for (const t of usedTags) {
       const cfg = state.config.tags.find((x) => x.name === t);
@@ -1367,6 +1444,9 @@ async function buildGraph(scopePath) {
 
   window.KGraph.setData({ nodes, edges }, {
     pins,
+    incremental: true,
+    onProgress: (rev, tot) => loadBar.set(rev, tot),
+    onDone: () => loadBar.done(),
     onPin: (map) => {
       try { localStorage.setItem(pinKey, JSON.stringify(map)); } catch { }
     },
@@ -1881,9 +1961,86 @@ function initResizers() {
   }
 }
 
+/* ------------------------------------------------------- top load bar --- */
+// loadBar.start('Loading graph') -> .set(done, total, 'projects') -> .done()
+const loadBar = {
+  _t: null,
+  start(label) {
+    clearTimeout(this._t);
+    const el = $('loadBar');
+    el.hidden = false;
+    el.classList.remove('fade');
+    $('loadBarFill').style.width = '3%';
+    $('loadBarText').textContent = label || '';
+  },
+  set(done, total, noun) {
+    const pct = total ? Math.max(3, Math.round((done / total) * 100)) : 30;
+    $('loadBarFill').style.width = pct + '%';
+    $('loadBarText').textContent = total > 1
+      ? `${done} / ${total}${noun ? ' ' + noun : ''}` : $('loadBarText').textContent;
+  },
+  done() {
+    $('loadBarFill').style.width = '100%';
+    const el = $('loadBar');
+    el.classList.add('fade');
+    this._t = setTimeout(() => { el.hidden = true; el.classList.remove('fade'); }, 350);
+  },
+};
+
+/* --------------------------------------------------------- update bar --- */
+function showUpdateBar(info) {
+  if (!info || !info.version) return;
+  document.body.classList.add('has-update');
+  const bar = $('updateBar');
+  bar.hidden = false;
+  const ver = esc(info.version);
+  const rel = `https://github.com/ImKirit/Krate/releases/tag/v${ver}`;
+  // one item, duplicated so the loop is seamless
+  const item = `<span class="ub-item">
+      <span class="ub-dot"></span>
+      <b>${window.T('New update available')}</b>
+      <span class="ub-ver">v${ver}</span>
+      <span class="ub-gh" data-rel="${rel}">${window.T('View on GitHub')}</span>
+    </span>`;
+  $('ubTrack').innerHTML = `<span class="ub-flow">${item.repeat(4)}</span>`;
+  injectIcons(bar);
+  $('ubTrack').querySelectorAll('.ub-gh').forEach((a) => {
+    a.onclick = () => window.krate.openExternal(a.dataset.rel);
+  });
+  $('ubInstall').onclick = async () => {
+    $('ubInstall').disabled = true;
+    $('ubInstall').innerHTML = window.T('Restarting…');
+    await window.krate.updateInstall();
+  };
+  $('ubClose').onclick = () => {
+    bar.hidden = true;
+    document.body.classList.remove('has-update');
+  };
+}
+window.krate.on('update-ready', (info) => showUpdateBar(info));
+
+/* --------------------------------------------------------- what's new --- */
+function showWhatsNew(info) {
+  const cl = (window.KRATE_CHANGELOG || {})[info.to];
+  if (!cl) return;
+  const box = openModal(`
+    <div class="wn-hero"><img class="wn-mark" src="logo.png" alt=""></div>
+    <h2 style="text-align:center;cursor:grab">${esc(cl.title)}</h2>
+    <div class="wn-list">
+      ${cl.items.map((t) => `<div><span class="wn-dot"></span><span>${esc(t)}</span></div>`).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="wnDone" style="margin-left:0">${window.T('Got it')}</button>
+    </div>`);
+  box.querySelector('#wnDone').onclick = closeModal;
+}
+
 (async function boot() {
   injectIcons();
   initResizers();
   await refresh();
+  const s = await window.krate.getState();
+  if (s.update) showUpdateBar(s.update);
   if (!state.config.onboarded || !state.config.projectsRoot) openWizard();
+  else if (s.whatsNew) showWhatsNew(s.whatsNew);
 })();

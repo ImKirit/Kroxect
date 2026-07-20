@@ -26,38 +26,122 @@
   let reach = null;          // Set of node ids highlighted for the hovered node
   let alpha = 1;             // simulation heat
 
+  // incremental reveal state
+  let allNodes = [], pending = [], childrenOf = new Map();
+  let pins = {};
+  let onProgress = null, onDone = null, totalCount = 0;
+
+  function seedPos(n) {
+    // place a new node near its already-revealed parent so the graph grows
+    // outward instead of exploding from the center
+    const p = childrenOf.parent && childrenOf.parent.get(n.id);
+    const par = p && byId.get(p);
+    if (par) {
+      const ang = Math.random() * Math.PI * 2;
+      n.x = par.x + Math.cos(ang) * 24 + (Math.random() - 0.5) * 8;
+      n.y = par.y + Math.sin(ang) * 24 + (Math.random() - 0.5) * 8;
+    } else {
+      const ang = Math.random() * Math.PI * 2;
+      const rad = n.type === 'project' ? 70 : n.type === 'tag' ? 200 : 150;
+      n.x = Math.cos(ang) * rad + (Math.random() - 0.5) * 30;
+      n.y = Math.sin(ang) * rad + (Math.random() - 0.5) * 30;
+    }
+  }
+
+  function activate(n) {
+    const p = pins[n.id];
+    if (p) { n.pinned = true; n.x = p[0]; n.y = p[1]; }
+    else seedPos(n);
+    nodes.push(n);
+    byId.set(n.id, n);
+    // activate edges whose both endpoints are now present
+    for (const e of (childrenOf.edgeOf.get(n.id) || [])) {
+      if (byId.has(e.a) && byId.has(e.b) && !e._active) { e._active = true; edges.push(e); }
+    }
+    adjCache = null;
+    treeAdjCache = null;
+  }
+
   function setData(data, opts) {
     if (typeof opts === 'function') opts = { onClick: opts };
     opts = opts || {};
     onClick = opts.onClick || null;
     onPin = opts.onPin || null;
-    const pins = opts.pins || {};
+    onProgress = opts.onProgress || null;
+    onDone = opts.onDone || null;
+    pins = opts.pins || {};
 
-    nodes = data.nodes.map((n) => ({ vx: 0, vy: 0, x: 0, y: 0, pinned: false, ...n }));
-    byId = new Map(nodes.map((n) => [n.id, n]));
-    edges = data.edges.filter((e) => byId.has(e.a) && byId.has(e.b));
+    allNodes = data.nodes.map((n) => ({ vx: 0, vy: 0, x: 0, y: 0, pinned: false, ...n }));
+    const all = new Map(allNodes.map((n) => [n.id, n]));
+    const allEdges = data.edges.filter((e) => all.has(e.a) && all.has(e.b));
+    for (const e of allEdges) e._active = false;
 
-    // seed positions: ring per type for faster settling
-    let i = 0;
-    for (const n of nodes) {
-      const ang = (i / nodes.length) * Math.PI * 2;
-      const rad = n.type === 'project' ? 70 : n.type === 'tag' ? 200 : 150 + (i % 6) * 32;
-      n.x = Math.cos(ang) * rad + (Math.random() - 0.5) * 30;
-      n.y = Math.sin(ang) * rad + (Math.random() - 0.5) * 30;
-      i++;
+    // parent map (from tree edges) + per-node edge lists, for reveal seeding
+    const parent = new Map();
+    const edgeOf = new Map();
+    const add = (id, e) => { if (!edgeOf.has(id)) edgeOf.set(id, []); edgeOf.get(id).push(e); };
+    for (const e of allEdges) {
+      add(e.a, e); add(e.b, e);
+      if (e.kind === 'tree' && !parent.has(e.b)) parent.set(e.b, e.a);
     }
-    // restore pinned nodes exactly where the user left them
-    for (const n of nodes) {
-      const p = pins[n.id];
-      if (p) { n.pinned = true; n.x = p[0]; n.y = p[1]; }
+    childrenOf = { parent, edgeOf };
+
+    // reveal order: roots first (project/tag/link/root), then a BFS through the
+    // tree so folders and files come in breadth-first, growing outward
+    const rank = (n) => (n.type === 'project' || n.type === 'tag' || n.type === 'link' || n.id === 'root') ? 0 : 1;
+    const roots = allNodes.filter((n) => rank(n) === 0);
+    const order = [];
+    const seen = new Set();
+    for (const r of roots) { order.push(r); seen.add(r.id); }
+    let head = 0;
+    while (head < order.length) {
+      const cur = order[head++];
+      // children = nodes whose tree-parent is cur
+      for (const e of edgeOf.get(cur.id) || []) {
+        if (e.kind !== 'tree') continue;
+        const childId = parent.get(e.b) === cur.id ? e.b : (parent.get(e.a) === cur.id ? e.a : null);
+        if (childId && !seen.has(childId)) { seen.add(childId); order.push(all.get(childId)); }
+      }
+    }
+    for (const n of allNodes) if (!seen.has(n.id)) order.push(n); // orphans last
+
+    // reset live state
+    nodes = [];
+    edges = [];
+    byId = new Map();
+    totalCount = allNodes.length;
+
+    const incremental = opts.incremental && totalCount > 40;
+    if (!incremental) {
+      pending = [];
+      for (const n of order) activate(n);
+      cam = { x: 0, y: 0, z: totalCount > 400 ? 0.55 : totalCount > 120 ? 0.75 : 1 };
+      if (onProgress) onProgress(totalCount, totalCount);
+      if (onDone) onDone();
+    } else {
+      pending = order.slice();
+      // start with just the roots so it doesn't flash empty
+      const seedRoots = Math.min(pending.length, roots.length || 1);
+      for (let i = 0; i < seedRoots; i++) activate(pending.shift());
+      cam = { x: 0, y: 0, z: totalCount > 400 ? 0.5 : totalCount > 120 ? 0.7 : 0.95 };
+      if (onProgress) onProgress(nodes.length, totalCount);
     }
 
-    cam = { x: 0, y: 0, z: nodes.length > 400 ? 0.55 : nodes.length > 120 ? 0.75 : 1 };
     alpha = 1;
     hover = null;
     reach = null;
     adjCache = null;
     treeAdjCache = null;
+  }
+
+  // reveal a batch of pending nodes each frame while loading
+  function revealTick() {
+    if (!pending.length) return;
+    const batch = Math.max(6, Math.ceil(totalCount / 90)); // ~90 frames total
+    for (let i = 0; i < batch && pending.length; i++) activate(pending.shift());
+    alpha = Math.max(alpha, 0.5); // keep it warm so new nodes settle in
+    if (onProgress) onProgress(nodes.length, totalCount);
+    if (!pending.length && onDone) onDone();
   }
 
   function savePins() {
@@ -303,6 +387,7 @@
 
   function loop() {
     if (!running) return;
+    revealTick();
     step();
     draw();
     raf = requestAnimationFrame(loop);

@@ -69,6 +69,16 @@
       'Project context copied. Paste it into the chat (Ctrl+V)': 'Projektkontext kopiert. Füge ihn im Chat ein (Strg+V)',
       'Exported': 'Exportiert',
       'deleted': 'gelöscht',
+      'New update available': 'Neues Update verfügbar',
+      'View on GitHub': 'Auf GitHub ansehen',
+      'Update now': 'Jetzt updaten',
+      'Restarting…': 'Startet neu…',
+      'Got it': 'Alles klar',
+      'Loading graph': 'Graph wird geladen',
+      'projects': 'Projekte',
+      'Default project folders': 'Standard-Projektordner',
+      'Add folder': 'Ordner hinzufügen',
+      'Which folder?': 'Welcher Ordner?',
     },
   };
 

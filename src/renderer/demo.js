@@ -8,6 +8,7 @@ if (!window.krate) {
 
   const config = {
     projectsRoot: 'D:\\Projects',
+    projectsRoots: ['D:\\Projects'],
     externalProjects: [],
     hotkey: 'Control+Alt+K',
     onboarded: true,
@@ -156,7 +157,7 @@ if (!window.krate) {
   const find = (path) => projects.find((p) => p.path === path);
 
   window.krate = {
-    getState: async () => ({ config, projects: projects.map((p) => ({ path: p.path, meta: p.meta })), version: 'demo' }),
+    getState: async () => ({ config, projects: projects.map((p) => ({ path: p.path, meta: p.meta })), version: 'demo', whatsNew: null, update: null }),
     saveConfig: async (partial) => { Object.assign(config, partial); return { config, hotkey: { ok: true } }; },
     pickFolder: async () => null,
     createProject: async () => { throw new Error('Demo mode. Download Krate to create real projects.'); },
@@ -224,6 +225,8 @@ if (!window.krate) {
       ],
     }),
     dupesFind: async () => [],
+    updateStatus: async () => null,
+    updateInstall: async () => { },
     on: () => { },
   };
 }

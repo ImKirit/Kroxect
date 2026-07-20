@@ -181,28 +181,25 @@ function openAiWindow(provider) {
 // ------------------------------------------------------------ auto-update --
 // Checks GitHub Releases in the background. Downloads happen silently; when
 // an update is ready the user picks "restart now" or it installs on quit.
+let updaterRef = null;
+let pendingUpdate = null; // {version} once a download has finished
+let whatsNewInfo = null;  // {from, to} on the first run after an update
+
 function initAutoUpdate() {
   if (!app.isPackaged) return;
-  let autoUpdater;
-  try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('error', () => { /* offline or repo not reachable: try again next start */ });
-  autoUpdater.on('update-downloaded', async (info) => {
+  try { ({ autoUpdater: updaterRef } = require('electron-updater')); } catch { return; }
+  updaterRef.autoDownload = true;
+  updaterRef.autoInstallOnAppQuit = true;
+  updaterRef.on('error', () => { /* offline or repo not reachable: try again next start */ });
+  updaterRef.on('update-downloaded', (info) => {
+    pendingUpdate = { version: info.version };
     if (tray) tray.setToolTip(`Krate (update ${info.version} ready)`);
-    const r = await dialog.showMessageBox({
-      type: 'info',
-      buttons: ['Restart now', 'Later'],
-      defaultId: 0, cancelId: 1,
-      title: 'Krate update',
-      message: `Krate ${info.version} is ready.`,
-      detail: 'Restart to apply it now, or it installs the next time you quit Krate.',
-    });
-    if (r.response === 0) { isQuitting = true; autoUpdater.quitAndInstall(); }
+    // show the sliding update bar in the main window instead of a native dialog
+    if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('update-ready', pendingUpdate);
   });
-  autoUpdater.checkForUpdates().catch(() => { });
+  updaterRef.checkForUpdates().catch(() => { });
   // re-check every 6 hours while running in the tray
-  setInterval(() => autoUpdater.checkForUpdates().catch(() => { }), 6 * 60 * 60 * 1000);
+  setInterval(() => updaterRef.checkForUpdates().catch(() => { }), 6 * 60 * 60 * 1000);
 }
 
 // -------------------------------------------------------------- autostart --
@@ -284,7 +281,17 @@ function wireIpc() {
     config: store.getConfig(),
     projects: await store.listProjects(),
     version: app.getVersion(),
+    whatsNew: whatsNewInfo,
+    update: pendingUpdate,
   }));
+
+  ipcMain.handle('update:status', () => pendingUpdate);
+  ipcMain.handle('update:install', () => {
+    if (updaterRef && pendingUpdate) {
+      isQuitting = true;
+      updaterRef.quitAndInstall();
+    }
+  });
 
   ipcMain.handle('config:save', (e, partial) => {
     const before = store.getConfig().hotkey;
@@ -464,6 +471,15 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     store.init(app.getPath('userData'));
+
+    // Detect the first run after an update: the renderer shows "What's new"
+    // exactly once. A fresh install (no lastRunVersion yet) shows nothing.
+    {
+      const prev = store.getConfig().lastRunVersion;
+      const cur = app.getVersion();
+      if (prev && prev !== cur) whatsNewInfo = { from: prev, to: cur };
+      if (prev !== cur) store.saveConfig({ lastRunVersion: cur });
+    }
     wireIpc();
     createMainWindow();
     createOverlayWindow();

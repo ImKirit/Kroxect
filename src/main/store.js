@@ -39,7 +39,9 @@ const DEFAULT_TEMPLATES = [
 ];
 
 const DEFAULT_CONFIG = {
-  projectsRoot: null,
+  projectsRoot: null,     // first entry of projectsRoots, kept for compatibility
+  projectsRoots: [],      // every folder whose subfolders are treated as projects
+  lastRunVersion: null,
   externalProjects: [],
   hotkey: 'Control+Alt+K',
   tags: DEFAULT_TAGS,
@@ -78,14 +80,28 @@ function init(userDataPath) {
     if (!t.files) t.files = [];
   }
   if (!config.aiApi) config.aiApi = { ...DEFAULT_CONFIG.aiApi };
+  normalizeRoots();
 }
 
 function getConfig() {
   return config;
 }
 
+// keeps the single projectsRoot (used all over as "the default spot") and the
+// projectsRoots list (every folder whose subfolders count as projects) in sync
+function normalizeRoots() {
+  if (!Array.isArray(config.projectsRoots)) config.projectsRoots = [];
+  config.projectsRoots = [...new Set(config.projectsRoots.filter(Boolean))];
+  if (config.projectsRoot && !config.projectsRoots.some(
+    (r) => path.resolve(r).toLowerCase() === path.resolve(config.projectsRoot).toLowerCase())) {
+    config.projectsRoots.unshift(config.projectsRoot);
+  }
+  config.projectsRoot = config.projectsRoots[0] || null;
+}
+
 function saveConfig(partial) {
   config = { ...config, ...partial };
+  normalizeRoots();
   fs.mkdirSync(userData, { recursive: true });
   fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify(config, null, 2));
   version++;
@@ -138,11 +154,11 @@ async function listProjects() {
     } catch { /* not a krate project (or unreadable) — skip */ }
   }
 
-  if (config.projectsRoot) {
+  for (const root of config.projectsRoots || []) {
     try {
-      const entries = await fsp.readdir(config.projectsRoot, { withFileTypes: true });
+      const entries = await fsp.readdir(root, { withFileTypes: true });
       for (const e of entries) {
-        if (e.isDirectory()) await tryAdd(path.join(config.projectsRoot, e.name));
+        if (e.isDirectory()) await tryAdd(path.join(root, e.name));
       }
     } catch { /* root missing */ }
   }
@@ -334,12 +350,16 @@ async function structureOf(projectPath) {
 // Turns every subfolder of projectsRoot that has no krate.json yet into a
 // project (title = folder name). Used by the first-run wizard.
 async function adoptExisting() {
-  if (!config.projectsRoot) return 0;
   let adopted = 0;
-  const entries = await fsp.readdir(config.projectsRoot, { withFileTypes: true }).catch(() => []);
-  for (const e of entries) {
-    if (!e.isDirectory() || IGNORED_DIRS.has(e.name) || e.name.startsWith('.')) continue;
-    const dir = path.join(config.projectsRoot, e.name);
+  const dirs = [];
+  for (const root of config.projectsRoots || []) {
+    const entries = await fsp.readdir(root, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) {
+      if (!e.isDirectory() || IGNORED_DIRS.has(e.name) || e.name.startsWith('.')) continue;
+      dirs.push(path.join(root, e.name));
+    }
+  }
+  for (const dir of dirs) {
     if (fs.existsSync(path.join(dir, 'krate.json'))) continue;
     const now = new Date().toISOString();
     try {

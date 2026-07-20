@@ -401,7 +401,11 @@ input[type="color"] {
   max-height: 86vh; overflow-y: auto;
   box-shadow: var(--shadow-2);
 }
-#modalBox h2 { font-size: 17px; font-weight: 800; margin-bottom: 16px; }
+/* modals are draggable by their title bar */
+#modalBox.dragged { position: fixed; margin: 0; }
+#modalBox h2 { font-size: 17px; font-weight: 800; margin-bottom: 16px; cursor: grab; user-select: none; }
+#modalBox h2:active { cursor: grabbing; }
+#modalBox.dragging { transition: none; }
 #modalBox label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 6px; letter-spacing: 0.5px; font-weight: 800; }
 #modalBox input[type="text"], #modalBox input[type="password"], #modalBox textarea {
   width: 100%; background: var(--bg); border: 2px solid var(--border);
@@ -424,8 +428,91 @@ input[type="color"] {
 .mgr-del { background: none; border: none; color: var(--muted); cursor: pointer; display: inline-grid; place-items: center; }
 .mgr-del:hover { color: var(--danger); }
 
+.root-row { background: var(--bg); border: 2px solid var(--border); border-radius: 9px; padding: 7px 11px; }
+.root-path { flex: 1; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.root-badge { font-size: 10.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-fg); background: var(--accent); padding: 2px 8px; border-radius: 6px; }
+.root-def { padding: 4px 6px; }
+.root-def .ki { width: 15px; height: 15px; }
+.root-def:hover { color: #d4a10a; }
+
 .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .error-text { color: var(--danger); font-size: 12px; margin-top: 6px; font-weight: 600; }
+
+/* ---------------- update bar ----------------
+   Full-width bar at the very top. The text runs on a loop from right to left
+   like a luggage carousel; the Update-now button stays fixed on the right. */
+#updateBar {
+  height: 40px; flex-shrink: 0;
+  display: flex; align-items: center;
+  background: var(--accent); color: var(--accent-fg);
+  overflow: hidden; position: relative;
+}
+.ub-track {
+  flex: 1; overflow: hidden; height: 100%;
+  display: flex; align-items: center; white-space: nowrap;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.ub-flow { display: inline-flex; align-items: center; will-change: transform; animation: ubScroll 18s linear infinite; }
+.ub-track:hover .ub-flow { animation-play-state: paused; }
+.ub-item { display: inline-flex; align-items: center; gap: 10px; padding: 0 34px; font-weight: 700; font-size: 13.5px; }
+.ub-item .ub-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fg); opacity: 0.6; }
+.ub-item .ub-ver { padding: 1px 9px; border-radius: 6px; background: rgba(255, 255, 255, 0.22); font-weight: 800; }
+.ub-item .ub-gh { text-decoration: underline; cursor: pointer; opacity: 0.95; }
+.ub-item .ub-gh:hover { opacity: 1; }
+@keyframes ubScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ub-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px;
+  margin: 0 8px 0 6px; padding: 6px 14px; cursor: pointer;
+  border: none; border-radius: 8px; font-weight: 800; font-size: 13px;
+  background: var(--accent-fg); color: var(--accent);
+  transition: transform 0.12s var(--spring), filter 0.12s;
+}
+.ub-btn:hover { transform: translateY(-1px); filter: brightness(0.95); }
+.ub-btn:active { transform: scale(0.95); }
+.ub-btn .ki { width: 14px; height: 14px; }
+.ub-close {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--accent-fg); opacity: 0.7; padding: 6px; margin-right: 6px;
+  display: grid; place-items: center; border-radius: 6px;
+}
+.ub-close:hover { opacity: 1; background: rgba(255, 255, 255, 0.15); }
+.ub-close .ki { width: 15px; height: 15px; }
+body.has-update #app { height: calc(100vh - 40px); }
+body.has-update, body.has-update #app { }
+
+/* ---------------- top load bar ----------------
+   Reused whenever something takes a moment to load (graph, stats). Shows a
+   filling bar plus a short "x of y" label, then fades out. */
+#loadBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 120;
+  height: 3px; background: transparent;
+  transition: opacity 0.3s ease;
+}
+body.has-update #loadBar { top: 40px; }
+#loadBar i {
+  display: block; height: 100%; width: 0;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+#loadBar span {
+  position: absolute; top: 8px; right: 14px;
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  background: var(--panel); border: 2px solid var(--border);
+  padding: 2px 9px; border-radius: 7px;
+  box-shadow: var(--shadow-1);
+}
+#loadBar.fade { opacity: 0; }
+
+/* ---------------- what's new ---------------- */
+.wn-hero { display: grid; place-items: center; margin: 2px 0 12px; }
+.wn-mark { width: 56px; height: 56px; border-radius: 13px; object-fit: cover; border: 2px solid var(--border); }
+.wn-list { display: flex; flex-direction: column; gap: 11px; margin: 14px 0 4px; }
+.wn-list > div { display: flex; gap: 11px; align-items: flex-start; font-size: 13.8px; line-height: 1.5; }
+.wn-list .wn-dot {
+  flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
+  background: #f5b301; margin-top: 6px;
+}
 
 /* ---------------- boot screen ----------------
    Folders get packed into the K: two folder chips and a file chip slide
