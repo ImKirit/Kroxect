@@ -236,10 +236,20 @@ select:focus { border-color: var(--border-strong); }
 }
 
 .card-cover {
-  height: 112px; background-size: cover; background-position: center;
+  position: relative; overflow: hidden;
+  height: 112px;
   display: grid; place-items: center;
   font-size: 40px; font-weight: 800; color: var(--cover-fg);
   border-bottom: 2px solid var(--border);
+}
+
+/* a framed cover image: object-position pans, a focal scale zooms */
+.cover-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: var(--cx, 50%) var(--cy, 50%);
+  transform: scale(var(--cz, 1));
+  transform-origin: var(--cx, 50%) var(--cy, 50%);
 }
 
 .card-body { padding: 12px 13px 13px; }
@@ -265,13 +275,29 @@ select:focus { border-color: var(--border-strong); }
 .det-head { display: flex; gap: 14px; align-items: center; padding: 18px 18px 12px; }
 
 .det-cover {
+  position: relative; overflow: hidden;
   width: 92px; height: 92px; border-radius: 12px; flex-shrink: 0;
-  background: var(--accent); background-size: cover; background-position: center;
+  background: var(--accent);
   display: grid; place-items: center;
   font-size: 36px; font-weight: 800; color: var(--cover-fg);
   cursor: pointer; border: 2px solid var(--border);
 }
 .det-cover:hover { border-color: var(--border-strong); }
+
+/* cover framing editor */
+.cover-edit {
+  position: relative; overflow: hidden;
+  width: 100%; aspect-ratio: 16 / 7;
+  border-radius: 10px; border: 2px solid var(--border);
+  background: var(--bg2);
+  cursor: grab; touch-action: none;
+}
+.cover-edit.grabbing { cursor: grabbing; }
+.cover-edit::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+}
 
 .det-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 

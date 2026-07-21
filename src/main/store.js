@@ -129,6 +129,8 @@ async function readMeta(projectPath) {
   meta.links = meta.links || [];
   meta.related = meta.related || [];
   meta.favorite = !!meta.favorite;
+  meta.coverPos = meta.coverPos || { x: 50, y: 50 };
+  if (typeof meta.coverZoom !== 'number') meta.coverZoom = 1;
   return meta;
 }
 
@@ -196,6 +198,8 @@ async function createProject({ name, location, tags = [], template = null, descr
     tags,
     status: 'active',
     cover: null,
+    coverPos: { x: 50, y: 50 },
+    coverZoom: 1,
     color: '#a855f7',
     favorite: false,
     notes: [],
@@ -324,6 +328,9 @@ async function setCoverFromFile(projectPath, srcPath) {
   }
   await fsp.copyFile(srcPath, path.join(projectPath, ...rel.split('/')));
   meta.cover = rel;
+  // a fresh image starts centered at 1x; the user reframes it afterwards
+  meta.coverPos = { x: 50, y: 50 };
+  meta.coverZoom = 1;
   await writeMeta(projectPath, meta);
   return meta;
 }

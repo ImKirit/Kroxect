@@ -6,7 +6,7 @@
 'use strict';
 
 window.KRATE_CHANGELOG = {
-  '1.3.0': {
+  '1.3.1': {
     title: "What's new in Krate",
     groups: [
       {
@@ -35,6 +35,7 @@ window.KRATE_CHANGELOG = {
       {
         name: 'Projects & files', color: '#1fa855',
         items: [
+          "Cover images can be framed: after uploading one, drag to move it and scroll to zoom so you choose exactly what shows.",
           'Add several default project folders and pick which one a new project goes in.',
           'Trash with restore and ZIP export, so nothing is lost and projects are easy to share.',
           'A Downloads watch folder that offers to sort new files, plus krate:// links that open a project from anywhere.',

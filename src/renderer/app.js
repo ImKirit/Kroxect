@@ -34,6 +34,18 @@ function fileUrl(abs) {
   return encodeURI('file:///' + abs.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F');
 }
 
+// <img> for a project cover with the user's framing (pan via object-position,
+// zoom via a focal scale). projPath is the project folder.
+function coverStyleVars(meta) {
+  const pos = meta.coverPos || { x: 50, y: 50 };
+  const z = typeof meta.coverZoom === 'number' ? meta.coverZoom : 1;
+  return `--cx:${pos.x}%;--cy:${pos.y}%;--cz:${z}`;
+}
+function coverImgHtml(meta, projPath) {
+  const abs = projPath + '\\' + meta.cover.split('/').join('\\');
+  return `<img class="cover-img" src="${fileUrl(abs)}" alt="" style="${coverStyleVars(meta)}">`;
+}
+
 function absOf(rel) {
   return state.current.path + (rel ? '\\' + rel.split('/').join('\\') : '');
 }
@@ -281,12 +293,13 @@ function renderGrid() {
   }
   $('projectGrid').innerHTML = list.map((p, i) => {
     const cover = p.meta.cover
-      ? `style="--i:${i};background-image:url('${fileUrl(p.path + '\\' + p.meta.cover.split('/').join('\\'))}')"`
-      : `style="--i:${i};background:${p.meta.color || 'var(--accent)'}"`;
+      ? coverImgHtml(p.meta, p.path)
+      : esc((p.meta.title[0] || '?').toUpperCase());
+    const coverStyle = p.meta.cover ? `--i:${i}` : `--i:${i};background:${p.meta.color || 'var(--accent)'}`;
     return `
       <div class="card" data-path="${esc(p.path)}" style="--i:${i}">
         <div class="card-star ${p.meta.favorite ? 'on' : ''}" title="Pin to favorites">${window.KI.get(p.meta.favorite ? 'starFill' : 'star')}</div>
-        <div class="card-cover" ${cover}>${p.meta.cover ? '' : esc((p.meta.title[0] || '?').toUpperCase())}</div>
+        <div class="card-cover" style="${coverStyle}">${cover}</div>
         <div class="card-body">
           <div class="card-title">${esc(p.meta.title)}</div>
           <div class="card-sub"><span class="dot dot-${esc(p.meta.status || 'active')}"></span>${timeAgo(p.meta.modified)}</div>
@@ -355,10 +368,9 @@ function renderDetail() {
 
   const cover = $('detCover');
   if (meta.cover) {
-    cover.style.backgroundImage = `url('${fileUrl(absOf(meta.cover))}')`;
-    cover.textContent = '';
+    cover.style.background = '';
+    cover.innerHTML = coverImgHtml(meta, path);
   } else {
-    cover.style.backgroundImage = '';
     cover.style.background = meta.color || 'var(--accent)';
     cover.textContent = (meta.title[0] || '?').toUpperCase();
   }
@@ -413,9 +425,92 @@ $('btnAiProject').onclick = async () => {
   }
 };
 $('detCover').onclick = async () => {
-  const meta = await window.krate.setCover(state.current.path);
-  if (meta) { state.current.meta = meta; renderDetail(); }
+  if (state.current.meta.cover) openCoverEditor();
+  else {
+    const meta = await window.krate.setCover(state.current.path);
+    if (meta) { state.current.meta = meta; renderDetail(); openCoverEditor(); }
+  }
 };
+
+// Frame a cover after upload: drag to move, wheel or slider to zoom. The
+// framing (object-position + focal zoom) is saved into krate.json.
+function openCoverEditor() {
+  const meta = state.current.meta;
+  if (!meta.cover) return;
+  const pos = { x: (meta.coverPos || {}).x ?? 50, y: (meta.coverPos || {}).y ?? 50 };
+  let zoom = typeof meta.coverZoom === 'number' ? meta.coverZoom : 1;
+  const src = fileUrl(absOf(meta.cover));
+
+  const box = openModal(`
+    <h2>Cover image</h2>
+    <div class="hint" style="margin-bottom:10px">Drag the image to move it, scroll or use the slider to zoom.</div>
+    <div class="cover-edit" id="covEdit">
+      <img class="cover-img" id="covImg" src="${src}" alt="">
+    </div>
+    <div class="modal-row" style="margin-top:12px;align-items:center;gap:10px">
+      <span class="muted small">Zoom</span>
+      <input type="range" id="covZoom" min="1" max="3" step="0.01" value="${zoom}" style="flex:1">
+      <button class="btn" id="covReset">Reset</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="covChange">Change image</button>
+      <button class="btn btn-primary" id="covSave">Save</button>
+    </div>`);
+
+  const img = box.querySelector('#covImg');
+  const apply = () => {
+    img.style.cssText = `--cx:${pos.x}%;--cy:${pos.y}%;--cz:${zoom}`;
+  };
+  apply();
+
+  const frame = box.querySelector('#covEdit');
+  let dragging = false, lastX = 0, lastY = 0;
+  frame.addEventListener('pointerdown', (e) => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    frame.setPointerCapture(e.pointerId);
+    frame.classList.add('grabbing');
+  });
+  frame.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const r = frame.getBoundingClientRect();
+    // move the focal point opposite to the drag; slower when zoomed in
+    pos.x = Math.max(0, Math.min(100, pos.x - (e.clientX - lastX) / r.width * 100 / zoom));
+    pos.y = Math.max(0, Math.min(100, pos.y - (e.clientY - lastY) / r.height * 100 / zoom));
+    lastX = e.clientX; lastY = e.clientY;
+    apply();
+  });
+  const endDrag = () => { dragging = false; frame.classList.remove('grabbing'); };
+  frame.addEventListener('pointerup', endDrag);
+  frame.addEventListener('pointercancel', endDrag);
+  frame.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom = Math.max(1, Math.min(3, zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
+    box.querySelector('#covZoom').value = zoom;
+    apply();
+  }, { passive: false });
+  box.querySelector('#covZoom').oninput = (e) => { zoom = +e.target.value; apply(); };
+  box.querySelector('#covReset').onclick = () => {
+    pos.x = 50; pos.y = 50; zoom = 1;
+    box.querySelector('#covZoom').value = 1; apply();
+  };
+  box.querySelector('#covChange').onclick = async () => {
+    const m = await window.krate.setCover(state.current.path);
+    if (m) {
+      state.current.meta = m;
+      pos.x = 50; pos.y = 50; zoom = 1;
+      img.src = fileUrl(absOf(m.cover)) + '?t=' + Date.now();
+      box.querySelector('#covZoom').value = 1; apply();
+    }
+  };
+  box.querySelector('#covSave').onclick = async () => {
+    meta.coverPos = { x: Math.round(pos.x), y: Math.round(pos.y) };
+    meta.coverZoom = Math.round(zoom * 100) / 100;
+    await saveMetaNow();
+    closeModal();
+    renderDetail();
+    if (!state.current) renderGrid();
+  };
+}
 
 async function saveMetaNow() {
   state.current.meta = await window.krate.saveMeta({
