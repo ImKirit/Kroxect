@@ -37,17 +37,20 @@ contextBridge.exposeInMainWorld('krate', {
   dupesFind: invoke('dupes:find'),
   updateStatus: invoke('update:status'),
   updateInstall: invoke('update:install'),
+  openViewer: invoke('viewer:open'),
+  readFile: invoke('file:read'),
+  saveFile: invoke('file:save'),
 
   search: invoke('search:query'),
   browse: invoke('overlay:browse'),
   hideOverlay: invoke('overlay:hide'),
   openInMain: invoke('overlay:openInMain'),
 
-  startDrag: (absPath) => ipcRenderer.send('start-drag', absPath),
+  startDrag: (pathOrPaths) => ipcRenderer.send('start-drag', pathOrPaths),
   pathForFile: (file) => webUtils.getPathForFile(file),
 
   on: (channel, cb) => {
-    const allowed = ['overlay-shown', 'overlay-blur', 'goto-project', 'ai-activity', 'watch-file', 'update-ready'];
+    const allowed = ['overlay-shown', 'overlay-blur', 'goto-project', 'ai-activity', 'watch-file', 'update-ready', 'viewer-open'];
     if (allowed.includes(channel)) ipcRenderer.on(channel, (e, ...args) => cb(...args));
   },
 });

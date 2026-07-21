@@ -6,6 +6,54 @@
 'use strict';
 
 window.KRATE_CHANGELOG = {
+  '1.4.0': {
+    title: "What's new in Krate",
+    groups: [
+      {
+        name: 'Quick search', color: '#0e7fc0',
+        items: [
+          {
+            text: 'The search bar now works like a proper little file browser you can drag out of.',
+            sub: [
+              'Files open on double-click; a single click just selects (like Windows).',
+              'Click a folder to browse into it right there — no more jumping to Explorer.',
+              'Select many at once — Shift-click a range, Ctrl-click individual rows, or drag a box over them — then drag them all out together.',
+              'Dragging files out no longer closes the bar; only Escape closes it.',
+            ],
+          },
+          {
+            text: 'Ask the AI and it now shows the files it found as draggable rows, as if you had searched them yourself.',
+          },
+        ],
+      },
+      {
+        name: 'Built-in viewer', color: '#7a5af8',
+        items: [
+          {
+            text: 'A small Play / eye button on image, video and code rows opens a built-in viewer — no need to leave Krate.',
+            sub: [
+              'Images and videos play right inside the window.',
+              'Code and text files open in a basic editor: edit, Ctrl+Z, Ctrl+S to save.',
+              'HTML files get a live Preview toggle next to the code.',
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Graph view', color: '#f5b301',
+        items: [
+          'Identical files that live in more than one project are now joined by the same dashed line used for related projects.',
+          {
+            text: 'Fold folders shut to tidy up big graphs.',
+            sub: [
+              'Shift-click any folder to collapse it (a dashed halo marks it); shift-click again to open it.',
+              'Collapse all / Expand all buttons up top, and a Settings option to always start collapsed.',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   '1.3.1': {
     title: "What's new in Krate",
     groups: [

@@ -175,8 +175,10 @@
           <select id="graphScope"></select>
           <button class="btn btn-ghost" id="btnGraphLabels" title="Folder and file names: on, faint, off"><span class="ico" data-icon="note"></span> <span id="graphLabelsState">Labels</span></button>
           <button class="btn btn-ghost" id="btnGraphTags" title="Show or hide the tag circles"><span class="ico" data-icon="tag"></span> <span id="graphTagsState">Tags</span></button>
+          <button class="btn btn-ghost" id="btnGraphCollapse" title="Hide the contents of every folder"><span class="ico" data-icon="folder"></span> Collapse all</button>
+          <button class="btn btn-ghost" id="btnGraphExpand" title="Show every folder's contents again"><span class="ico" data-icon="folderOpen"></span> Expand all</button>
           <button class="btn btn-ghost" id="btnGraphUnpin" title="Remove every pin in this view"><span class="ico" data-icon="pin"></span> Unpin all</button>
-          <span class="muted small graph-hint">drag nodes · scroll to zoom · right-click pins a node in place · click to open</span>
+          <span class="muted small graph-hint">drag nodes · scroll to zoom · shift-click a folder to collapse it · right-click pins · click to open</span>
         </div>
         <canvas id="graphCanvas"></canvas>
       </div>

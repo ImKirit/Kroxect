@@ -1027,6 +1027,12 @@ function openSettings() {
       <span style="font-size:13.5px">Duplicate finder (adds a scan button to Stats)</span>
     </div>
 
+    <label>Graph</label>
+    <div class="modal-row" style="gap:10px">
+      <input type="checkbox" id="setGraphCollapsed" ${cfg.graphCollapsed ? 'checked' : ''} style="width:16px;height:16px">
+      <span style="font-size:13.5px">Start with folders collapsed <span class="muted">(shift-click a folder to fold it; buttons for all)</span></span>
+    </div>
+
     <label>Startup</label>
     <div class="modal-row" style="gap:10px">
       <input type="checkbox" id="setAutostart" ${cfg.autostart !== false ? 'checked' : ''} style="width:16px;height:16px">
@@ -1397,6 +1403,7 @@ function openSettings() {
       tags, templates,
       thumbnails: box.querySelector('#setThumbs').checked,
       dupFinder: box.querySelector('#setDup').checked,
+      graphCollapsed: box.querySelector('#setGraphCollapsed').checked,
       autostart: box.querySelector('#setAutostart').checked,
       watchEnabled: box.querySelector('#setWatch').checked,
       watchPath: box.querySelector('#setWatchPath').value || null,
@@ -1462,6 +1469,8 @@ async function buildGraph(scopePath) {
         nick: !!nick && !n.dir,
         abs: basePath + '\\' + n.rel.split('/').join('\\'),
         dir: n.dir,
+        fname: n.name,   // bare filename, for cross-project "same file" links
+        proj: basePath,  // which project this node lives in
       };
       nodes.push(node);
       edges.push({ a: parentId, b: id, kind: 'tree' });
@@ -1516,6 +1525,36 @@ async function buildGraph(scopePath) {
         if (other) edges.push({ a: 'p:' + p.path, b: 'p:' + other.path, kind: 'related' });
       }
     }
+
+    // dashed links between identical files living in different projects.
+    // group file nodes by filename, skip ubiquitous/generic names, and chain
+    // one occurrence per project together so the connection is visible but tidy
+    const GENERIC = new Set([
+      'readme.md', 'license', 'license.md', 'license.txt', '.gitignore',
+      'package.json', 'package-lock.json', 'yarn.lock', '.ds_store', 'thumbs.db',
+      'index.html', 'index.js', 'main.js', 'style.css', 'styles.css', 'notes.md',
+    ]);
+    const groups = new Map(); // filename -> [{id, proj}]
+    for (const n of nodes) {
+      if (n.type !== 'file' || !n.fname) continue;
+      const key = n.fname.toLowerCase();
+      if (GENERIC.has(key)) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(n);
+    }
+    let sameLinks = 0;
+    for (const list of groups.values()) {
+      // one representative per project, so we link across projects not within one
+      const perProj = new Map();
+      for (const n of list) if (!perProj.has(n.proj)) perProj.set(n.proj, n);
+      const reps = [...perProj.values()];
+      if (reps.length < 2 || reps.length > 6) continue; // need ≥2 projects, skip noisy names
+      for (let i = 1; i < reps.length; i++) {
+        edges.push({ a: reps[i - 1].id, b: reps[i].id, kind: 'samefile' });
+        if (++sameLinks > 300) break;
+      }
+      if (sameLinks > 300) break;
+    }
   } else {
     // one project: full depth folders + files + tags + links
     const p = state.projects.find((x) => x.path === scopePath);
@@ -1557,6 +1596,8 @@ async function buildGraph(scopePath) {
   });
   // tag visibility persists across graph opens
   window.KGraph.setTypeHidden('tag', localStorage.getItem('krate.graph.hideTags') === '1');
+  // optional: start with every folder collapsed (Settings → Graph)
+  if (state.config.graphCollapsed) window.KGraph.collapseAll();
   window.KGraph.start();
 }
 
@@ -1583,6 +1624,8 @@ $('btnGraphTags').onclick = () => {
   syncGraphHud();
 };
 $('btnGraphUnpin').onclick = () => window.KGraph.unpinAll();
+$('btnGraphCollapse').onclick = () => window.KGraph.collapseAll();
+$('btnGraphExpand').onclick = () => window.KGraph.expandAll();
 
 /* ------------------------------------------------------------ ai panel --- */
 const AI_URLS = {

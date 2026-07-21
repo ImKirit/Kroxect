@@ -58,6 +58,8 @@ const DEFAULT_CONFIG = {
   watchEnabled: false,
   watchPath: null,
   dupFinder: false,
+  graphCollapsed: false, // start the graph with every folder folded shut
+
   // AI: 'web' embeds the provider's site (account login), 'api' runs the
   // built-in agent with an API key.
   aiMode: 'api',

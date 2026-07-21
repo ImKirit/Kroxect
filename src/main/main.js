@@ -178,6 +178,38 @@ function openAiWindow(provider) {
   aiWin.loadURL(url, { userAgent: CHROME_UA });
 }
 
+// ------------------------------------------------------------- viewer win --
+// A small window that previews an image or video, or opens a basic code
+// editor (view/edit/save + HTML preview). One window, reused.
+let viewerWin = null;
+
+function openViewer(absPath) {
+  if (!viewerWin || viewerWin.isDestroyed()) {
+    viewerWin = new BrowserWindow({
+      width: 900, height: 680, minWidth: 460, minHeight: 340,
+      backgroundColor: THEME_BG[store.getConfig().theme] || THEME_BG.light,
+      icon: ICON,
+      title: 'Krate — Viewer',
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        // let the viewer load local media files
+        webSecurity: false,
+      },
+    });
+    viewerWin.on('closed', () => { viewerWin = null; });
+    viewerWin.loadFile(path.join(__dirname, '..', 'viewer', 'viewer.html'));
+  } else {
+    viewerWin.show();
+    viewerWin.focus();
+  }
+  const send = () => viewerWin.webContents.send('viewer-open', absPath);
+  if (viewerWin.webContents.isLoading()) viewerWin.webContents.once('did-finish-load', send);
+  else send();
+}
+
 // ------------------------------------------------------------ auto-update --
 // Checks GitHub Releases in the background. Downloads happen silently; when
 // an update is ready the user picks "restart now" or it installs on quit.
@@ -430,12 +462,12 @@ function wireIpc() {
   // Built-in agent: answers questions about the library using read-only tools.
   ipcMain.handle('ai:ask', async (e, { history }) => {
     try {
-      const text = await ai.ask({
+      const r = await ai.ask({
         config: store.getConfig(),
         history,
         onActivity: (t) => { try { e.sender.send('ai-activity', t); } catch { } },
       });
-      return { text };
+      return { text: r.text, files: r.files || [] };
     } catch (err) {
       return { error: String(err.message || err) };
     }
@@ -453,8 +485,28 @@ function wireIpc() {
     mainWin.webContents.send('goto-project', { path: projectPath, rel: rel || '' });
   });
 
-  ipcMain.on('start-drag', (e, absPath) => {
-    e.sender.startDrag({ file: absPath, icon: nativeImage.createFromPath(ICON).resize({ width: 24, height: 24 }) });
+  ipcMain.on('start-drag', (e, arg) => {
+    const icon = nativeImage.createFromPath(ICON).resize({ width: 24, height: 24 });
+    if (Array.isArray(arg)) {
+      if (!arg.length) return;
+      e.sender.startDrag({ files: arg, file: arg[0], icon });
+    } else {
+      e.sender.startDrag({ file: arg, icon });
+    }
+  });
+
+  // built-in viewer: quick look at an image/video, or a basic code editor
+  ipcMain.handle('viewer:open', (e, absPath) => { openViewer(absPath); });
+  ipcMain.handle('file:read', async (e, absPath) => {
+    try {
+      const st = await require('fs').promises.stat(absPath);
+      if (st.size > 2 * 1024 * 1024) return { error: 'File is too large to edit here (over 2 MB).' };
+      return { text: await require('fs').promises.readFile(absPath, 'utf8') };
+    } catch (err) { return { error: String(err.message || err) }; }
+  });
+  ipcMain.handle('file:save', async (e, { path: p, text }) => {
+    try { await require('fs').promises.writeFile(p, text, 'utf8'); return { ok: true }; }
+    catch (err) { return { error: String(err.message || err) }; }
   });
 }
 

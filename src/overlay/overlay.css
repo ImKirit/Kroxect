@@ -100,7 +100,34 @@ body.compact #results, body.compact #hints, body.compact #crumbs { display: none
   padding: 8px 10px; border-radius: 8px; cursor: default;
 }
 .rrow.sel { background: var(--accent-soft); outline: 2px solid var(--border); }
-.rrow:hover:not(.sel) { background: var(--panel2); }
+.rrow:hover:not(.sel):not(.picked) { background: var(--panel2); }
+.rrow.picked { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.rrow[draggable="true"] { cursor: grab; }
+.rrow:active { cursor: grabbing; }
+
+/* quick-look button on media/code rows */
+.rplay {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px;
+  display: inline-grid; place-items: center; cursor: pointer;
+  background: var(--accent-soft); color: var(--text);
+  border: 1px solid var(--border);
+}
+.rplay:hover { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.rplay .ki { width: 14px; height: 14px; }
+
+/* rubber-band selection box */
+#results { position: relative; }
+.rband {
+  position: absolute; z-index: 5; pointer-events: none;
+  background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 3px;
+}
+
+/* AI "found files" header */
+.ai-files-h {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 10px 12px 4px;
+}
 
 .ricon { display: inline-flex; justify-content: center; width: 20px; flex-shrink: 0; }
 .ricon .ki { width: 18px; height: 18px; }

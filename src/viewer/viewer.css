@@ -1,0 +1,50 @@
+:root, body[data-theme="light"] {
+  --bg: #f4f4f1; --panel: #ffffff; --border: #dcdcd3;
+  --text: #17171c; --muted: #70706a; --accent: #15151a; --accent-fg: #fff;
+}
+body[data-theme="dark"] {
+  --bg: #0d0d0d; --panel: #191919; --border: #2b2b2b;
+  --text: #f2f2f2; --muted: #9c9c96; --accent: #f2f2f2; --accent-fg: #141414;
+}
+body[data-theme="purple"] {
+  --bg: #0b0a10; --panel: #16131f; --border: #262130;
+  --text: #eae7f4; --muted: #8d88a3; --accent: #a855f7; --accent-fg: #fff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
+
+#bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-bottom: 2px solid var(--border); background: var(--panel);
+  flex-shrink: 0;
+}
+.v-name { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-spacer { flex: 1; }
+.v-status { font-size: 12px; color: var(--muted); font-weight: 600; }
+.v-btn {
+  background: var(--panel); border: 2px solid var(--border); border-radius: 8px;
+  padding: 5px 12px; font: inherit; font-weight: 700; font-size: 12.5px; color: var(--text);
+  cursor: pointer;
+}
+.v-btn:hover { border-color: var(--accent); }
+.v-btn.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+#stage { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+/* image / video */
+.v-media { flex: 1; display: grid; place-items: center; padding: 16px; overflow: auto; background: #0a0a0a; }
+.v-media img, .v-media video { max-width: 100%; max-height: 100%; border-radius: 6px; }
+
+/* code editor + preview split */
+.v-code { flex: 1; display: flex; min-height: 0; }
+.v-code textarea {
+  flex: 1; min-width: 0; resize: none; border: none; outline: none;
+  background: var(--bg); color: var(--text);
+  font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; line-height: 1.55;
+  padding: 12px 14px; tab-size: 2;
+}
+.v-preview { flex: 1; min-width: 0; border-left: 2px solid var(--border); background: #fff; }
+.v-preview iframe { width: 100%; height: 100%; border: none; }
+
+.v-msg { flex: 1; display: grid; place-items: center; color: var(--muted); font-weight: 600; padding: 30px; text-align: center; }

@@ -66,7 +66,9 @@ async function insideLibrary(abs) {
   return projects.some((p) => r.startsWith(path.resolve(p.path).toLowerCase() + path.sep) || r === path.resolve(p.path).toLowerCase());
 }
 
-async function runTool(name, input) {
+// `found` (optional) collects the structured file/folder hits the agent turns
+// up, so the UI can show them as draggable rows ("as if you searched them").
+async function runTool(name, input, found = null) {
   if (name === 'list_projects') {
     const projects = await store.listProjects();
     if (!projects.length) return 'No projects in the library yet.';
@@ -83,6 +85,11 @@ async function runTool(name, input) {
   if (name === 'search_library') {
     const results = await indexer.search(String(input.query || ''));
     if (!results.length) return 'No matches.';
+    if (found) {
+      for (const r of results.slice(0, 25)) {
+        if (r.type === 'file' || r.type === 'folder') found.push(r);
+      }
+    }
     return results.slice(0, 25).map((r) => {
       if (r.type === 'project') return `[project] ${r.name} — ${r.abs}`;
       if (r.type === 'link') return `[link] ${r.name} (${r.projectTitle}) — ${r.url}`;
@@ -113,7 +120,7 @@ async function runTool(name, input) {
 }
 
 // ------------------------------------------------- provider: anthropic ----
-async function askAnthropic({ apiKey, model, history, onActivity }) {
+async function askAnthropic({ apiKey, model, history, onActivity, found }) {
   const Anthropic = require('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
   const messages = history.map((m) => ({ role: m.role, content: m.content }));
@@ -145,7 +152,7 @@ async function askAnthropic({ apiKey, model, history, onActivity }) {
     for (const tu of toolUses) {
       onActivity(`${tu.name}(${JSON.stringify(tu.input).slice(0, 80)})`);
       let out;
-      try { out = await runTool(tu.name, tu.input || {}); } catch (err) { out = `Error: ${err.message}`; }
+      try { out = await runTool(tu.name, tu.input || {}, found); } catch (err) { out = `Error: ${err.message}`; }
       results.push({ type: 'tool_result', tool_use_id: tu.id, content: String(out).slice(0, 60000) });
     }
     messages.push({ role: 'user', content: results });
@@ -159,7 +166,7 @@ const OPENAI_TOOLS = TOOLS.map((t) => ({
   function: { name: t.name, description: t.description, parameters: t.input_schema },
 }));
 
-async function askOpenAICompat({ provider, baseUrl, apiKey, model, history, onActivity }) {
+async function askOpenAICompat({ provider, baseUrl, apiKey, model, history, onActivity, found }) {
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
   const messages = [
     { role: 'system', content: SYSTEM },
@@ -215,7 +222,7 @@ async function askOpenAICompat({ provider, baseUrl, apiKey, model, history, onAc
       try { input = JSON.parse(tc.function.arguments || '{}'); } catch { }
       onActivity(`${tc.function.name}(${(tc.function.arguments || '').slice(0, 80)})`);
       let out;
-      try { out = await runTool(tc.function.name, input); } catch (err) { out = `Error: ${err.message}`; }
+      try { out = await runTool(tc.function.name, input, found); } catch (err) { out = `Error: ${err.message}`; }
       messages.push({ role: 'tool', tool_call_id: tc.id, content: String(out).slice(0, 60000) });
     }
   }
@@ -228,14 +235,28 @@ async function ask({ config, history, onActivity = () => { } }) {
   const ai = config.aiApi || {};
   if (!ai.apiKey) throw new Error('No API key set. Add one in Settings → AI assistant.');
 
+  const found = [];
+  let text;
   if (ai.provider === 'anthropic') {
-    return askAnthropic({ apiKey: ai.apiKey, model: ai.model, history, onActivity });
+    text = await askAnthropic({ apiKey: ai.apiKey, model: ai.model, history, onActivity, found });
+  } else {
+    const baseUrl = ai.provider === 'groq' ? 'https://api.groq.com/openai/v1' : (ai.baseUrl || '');
+    if (!baseUrl) throw new Error('No base URL set for the custom provider.');
+    const model = ai.model || (ai.provider === 'groq' ? 'llama-3.3-70b-versatile' : '');
+    if (!model) throw new Error('No model set for the custom provider.');
+    text = await askOpenAICompat({ provider: ai.provider, baseUrl, apiKey: ai.apiKey, model, history, onActivity, found });
   }
-  const baseUrl = ai.provider === 'groq' ? 'https://api.groq.com/openai/v1' : (ai.baseUrl || '');
-  if (!baseUrl) throw new Error('No base URL set for the custom provider.');
-  const model = ai.model || (ai.provider === 'groq' ? 'llama-3.3-70b-versatile' : '');
-  if (!model) throw new Error('No model set for the custom provider.');
-  return askOpenAICompat({ provider: ai.provider, baseUrl, apiKey: ai.apiKey, model, history, onActivity });
+
+  // dedupe surfaced files by absolute path, keep first-seen order, cap the list
+  const seen = new Set();
+  const files = [];
+  for (const f of found) {
+    if (!f || seen.has(f.abs)) continue;
+    seen.add(f.abs);
+    files.push(f);
+    if (files.length >= 30) break;
+  }
+  return { text, files };
 }
 
 // Minimal 1-request connection check with explicit settings (used by the

@@ -17,12 +17,36 @@
   let onPin = null;
   let labelMode = localStorage.getItem('krate.graph.labels') || 'on';
   const hiddenTypes = new Set(); // node types hidden from view + physics (e.g. 'tag')
-  const isHidden = (n) => hiddenTypes.has(n.type);
+  const collapsed = new Set();      // folder ids the user collapsed (contents hidden)
+  let collapsedHidden = new Set();  // every descendant id currently hidden by a collapse
+  const isHidden = (n) => hiddenTypes.has(n.type) || collapsedHidden.has(n.id);
+
+  // recompute which nodes are hidden because an ancestor folder is collapsed
+  function recomputeCollapsed() {
+    collapsedHidden = new Set();
+    if (collapsed.size && childrenOf.parent) {
+      const kids = new Map(); // reverse of the tree parent map
+      for (const [child, par] of childrenOf.parent) {
+        if (!kids.has(par)) kids.set(par, []);
+        kids.get(par).push(child);
+      }
+      const stack = [...collapsed];
+      while (stack.length) {
+        const id = stack.pop();
+        for (const c of (kids.get(id) || [])) {
+          if (!collapsedHidden.has(c)) { collapsedHidden.add(c); stack.push(c); }
+        }
+      }
+    }
+    adjCache = null; treeAdjCache = null;
+    hover = null; reach = null;
+    alpha = Math.max(alpha, 0.5); // let neighbours settle into the freed space
+  }
 
   // camera
   let cam = { x: 0, y: 0, z: 1 };
   // interaction
-  let dragNode = null, panning = false, moved = false;
+  let dragNode = null, panning = false, moved = false, dragShift = false;
   let last = { x: 0, y: 0 };
   let hover = null;
   let reach = null;          // Set of node ids highlighted for the hovered node
@@ -121,6 +145,8 @@
     edges = [];
     byId = new Map();
     spawnCount.clear();
+    collapsed.clear();
+    collapsedHidden = new Set();
     totalCount = allNodes.length;
 
     const incremental = opts.incremental && totalCount > 40;
@@ -233,7 +259,9 @@
       if (isHidden(a) || isHidden(b)) continue;
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (d - springLen) * springK * alpha;
+      // cross-project "same file" links pull only gently, so they show the
+      // connection without dragging unrelated projects on top of each other
+      const f = (d - springLen) * springK * (e.kind === 'samefile' ? 0.18 : 1) * alpha;
       const fx = (dx / d) * f, fy = (dy / d) * f;
       a.vx += fx; a.vy += fy;
       b.vx -= fx; b.vy -= fy;
@@ -307,10 +335,11 @@
       const a = byId.get(e.a), b = byId.get(e.b);
       if (isHidden(a) || isHidden(b)) continue;
       const lit = reach && reach.has(a.id) && reach.has(b.id);
-      ctx.lineWidth = ((e.kind === 'related' ? 2 : 1) + (lit ? 0.8 : 0)) / cam.z;
+      const dashed = e.kind === 'related' || e.kind === 'samefile';
+      ctx.lineWidth = ((e.kind === 'related' ? 2 : dashed ? 1.5 : 1) + (lit ? 0.8 : 0)) / cam.z;
       ctx.strokeStyle = lit ? th.edgeHover : th.edge;
       ctx.globalAlpha = reach && !lit ? 0.25 : 1;
-      ctx.setLineDash(e.kind === 'related' ? [5 / cam.z, 4 / cam.z] : []);
+      ctx.setLineDash(dashed ? [5 / cam.z, 4 / cam.z] : []);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
@@ -340,6 +369,16 @@
         ctx.beginPath();
         ctx.arc(n.x, n.y, r + 3.2 / cam.z, 0, Math.PI * 2);
         ctx.stroke();
+      }
+      // a dashed halo marks a collapsed folder (its contents are hidden)
+      if (n.type === 'folder' && collapsed.has(n.id)) {
+        ctx.setLineDash([2 / cam.z, 2 / cam.z]);
+        ctx.strokeStyle = n.color;
+        ctx.lineWidth = 1.6 / cam.z;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 3 / cam.z, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
       ctx.globalAlpha = 1;
       if (n.pinned) drawPin(n, th);
@@ -457,6 +496,7 @@
       dragNode = hitTest(w.x, w.y);
       panning = !dragNode;
       moved = false;
+      dragShift = e.shiftKey;
       last = { x: e.clientX, y: e.clientY };
       c.classList.add('grabbing');
       alpha = Math.max(alpha, 0.25);
@@ -500,8 +540,11 @@
     window.addEventListener('mouseup', (e) => {
       if (e.button !== 0) return;
       if (dragNode) {
-        if (!moved && onClick) onClick(dragNode);
-        else if (dragNode.pinned) savePins(); // pinned node moved: remember the new spot
+        if (!moved) {
+          // shift-click a folder collapses/expands it; otherwise it's a normal open
+          if (dragShift && dragNode.type === 'folder') toggleCollapse(dragNode.id);
+          else if (onClick) onClick(dragNode);
+        } else if (dragNode.pinned) savePins(); // pinned node moved: remember the new spot
       }
       dragNode = null;
       panning = false;
@@ -517,8 +560,33 @@
     window.addEventListener('resize', () => { if (running) resize(); });
   }
 
+  function toggleCollapse(id) {
+    if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+    recomputeCollapsed();
+  }
+  function collapseAll() {
+    for (const n of allNodes) if (n.type === 'folder') collapsed.add(n.id);
+    recomputeCollapsed();
+  }
+  function expandAll() {
+    collapsed.clear();
+    recomputeCollapsed();
+  }
+
   window.KGraph = {
     setData, start, stop, bind,
+    collapseAll, expandAll, toggleCollapse,
+    isCollapsed(id) { return collapsed.has(id); },
+    // internal: counts for tests/debugging (total, visible, collapsed, dashed edges)
+    _debug() {
+      return {
+        total: nodes.length,
+        visible: nodes.filter((n) => !isHidden(n)).length,
+        collapsed: collapsed.size,
+        hidden: collapsedHidden.size,
+        sameEdges: edges.filter((e) => e.kind === 'samefile').length,
+      };
+    },
     setLabelMode(m) {
       labelMode = ['on', 'dim', 'off'].includes(m) ? m : 'on';
       localStorage.setItem('krate.graph.labels', labelMode);
